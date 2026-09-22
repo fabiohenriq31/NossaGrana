@@ -1,0 +1,277 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+ directUrl = env("DIRECT_URL")
+}
+enum TransactionType {
+ RECEITA
+ DESPESA
+ TRANSFERENCIA
+}
+enum TransactionStatus {
+ CONFIRMADA
+ PENDENTE
+ CANCELADA
+}
+enum TransactionSource {
+ MANUAL
+ TELEGRAM
+ IMPORTACAO
+ AUTOMACAO
+}
+enum PaymentMethod {
+ PIX
+ DEBITO
+ CREDITO
+ DINHEIRO
+ BOLETO
+ TRANSFERENCIA
+ OUTRO
+}
+model Household {
+ id String @id @default(cuid())
+ name String
+ mode String @default("REAL")
+ users User[]
+ accounts Account[]
+ cards CreditCard[]
+ categories Category[]
+ transactions Transaction[]
+ recurrences RecurringTransaction[]
+ tags Tag[]
+ imports ExternalImport[]
+ createdAt DateTime @default(now())
+}
+model User {
+ id String @id @default(cuid())
+ name String
+ email String @unique
+ passwordHash String
+ tokenVersion Int @default(0)
+ householdId String
+ household Household @relation(fields: [householdId], references: [id])
+ createdAt DateTime @default(now())
+}
+model Bank {
+ id String @id
+ name String
+ accounts Account[]
+ cards CreditCard[]
+}
+model Account {
+ id String @id @default(cuid())
+ householdId String
+ household Household @relation(fields: [householdId], references: [id])
+ bankId String
+ bank Bank @relation(fields: [bankId], references: [id])
+ name String
+ owner String
+ type String
+ initialBalance Int
+ openingDate DateTime @default(dbgenerated("'1970-01-01'::date")) @db.Date
+ color String @default("#4389ff")
+ notes String @default("")
+ paymentCards CreditCard[] @relation("DefaultPaymentAccount")
+ active Boolean @default(true)
+ transactions Transaction[] @relation("AccountMovements")
+ received Transaction[] @relation("ReceivedMovements")
+ transfersOut Transfer[] @relation("TransferOut")
+ transfersIn Transfer[] @relation("TransferIn")
+ createdAt DateTime @default(now())
+ @@index([householdId])
+}
+model CreditCard {
+ id String @id @default(cuid())
+ householdId String
+ household Household @relation(fields: [householdId], references: [id])
+ bankId String
+ bank Bank @relation(fields: [bankId], references: [id])
+ name String
+ owner String
+ brand String
+ last4 String
+ limit Int
+ paymentAccountId String?
+ paymentAccount Account? @relation("DefaultPaymentAccount",fields: [paymentAccountId],references: [id])
+ closingDay Int
+ dueDay Int
+ color String
+ active Boolean @default(true)
+ invoices Invoice[]
+ transactions Transaction[]
+ purchases InstallmentPurchase[]
+ createdAt DateTime @default(now())
+ @@index([householdId])
+}
+model Invoice {
+ id String @id @default(cuid())
+ cardId String
+ card CreditCard @relation(fields: [cardId], references: [id])
+ competence String
+ closingDate DateTime
+ dueDate DateTime
+ transactions Transaction[] @relation("InvoicePurchases")
+ payments Transaction[] @relation("InvoicePayments")
+ paymentRecords InvoicePayment[]
+ @@unique([cardId, competence])
+}
+model Category {
+ id String @id @default(cuid())
+ householdId String
+ household Household @relation(fields: [householdId], references: [id])
+ name String
+ color String
+ icon String
+ subcategories Subcategory[]
+ transactions Transaction[]
+ @@unique([householdId, name])
+}
+model Subcategory {
+ id String @id @default(cuid())
+ name String
+ categoryId String
+ category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+ transactions Transaction[]
+ @@unique([categoryId, name])
+}
+model Transaction {
+ id String @id @default(cuid())
+ householdId String
+ household Household @relation(fields: [householdId], references: [id])
+ description String
+ amount Int
+ date DateTime
+ competence String
+ type TransactionType
+ paymentMethod PaymentMethod @default(OUTRO)
+ dueDate DateTime? @db.Date
+ cancelledAt DateTime?
+ status TransactionStatus @default(CONFIRMADA)
+ owner String
+ accountId String?
+ account Account? @relation("AccountMovements",fields: [accountId],references: [id])
+ destinationAccountId String?
+ destinationAccount Account? @relation("ReceivedMovements",fields: [destinationAccountId],references: [id])
+ cardId String?
+ card CreditCard? @relation(fields: [cardId],references: [id])
+ categoryId String?
+ category Category? @relation(fields: [categoryId],references: [id], onDelete: Restrict)
+ subcategoryId String?
+ subcategory Subcategory? @relation(fields: [subcategoryId],references: [id], onDelete: Restrict)
+ invoiceId String?
+ invoice Invoice? @relation("InvoicePurchases",fields: [invoiceId],references: [id])
+ paymentInvoiceId String?
+ paymentInvoice Invoice? @relation("InvoicePayments",fields: [paymentInvoiceId],references: [id])
+ notes String @default("")
+ tags String[]
+ source TransactionSource @default(MANUAL)
+ installmentPurchaseId String?
+ installmentPurchase InstallmentPurchase? @relation(fields: [installmentPurchaseId],references: [id])
+ installmentNumber Int?
+ recurringId String?
+ recurring RecurringTransaction? @relation(fields: [recurringId],references: [id])
+ occurrenceDate DateTime?
+ transfer Transfer?
+ invoicePayment InvoicePayment?
+ installment Installment?
+ attachments Attachment[]
+ createdAt DateTime @default(now())
+ @@unique([recurringId, occurrenceDate])
+ @@index([householdId, competence, date])
+ @@index([householdId, status, date])
+ @@index([accountId, date])
+ @@index([cardId, date])
+ @@index([categoryId])
+ @@index([destinationAccountId, date])
+ @@index([invoiceId])
+ @@index([paymentInvoiceId])
+}
+model Transfer {
+ id String @id @default(cuid())
+ transactionId String @unique
+ transaction Transaction @relation(fields: [transactionId], references: [id],onDelete: Cascade)
+ fromAccountId String
+ fromAccount Account @relation("TransferOut",fields: [fromAccountId],references: [id])
+ toAccountId String
+ toAccount Account @relation("TransferIn",fields: [toAccountId],references: [id])
+}
+model InstallmentPurchase {
+ id String @id @default(cuid())
+ cardId String
+ card CreditCard @relation(fields: [cardId],references: [id])
+ description String
+ totalAmount Int
+ installments Int
+ purchasedAt DateTime
+ transactions Transaction[]
+ parts Installment[]
+}
+model RecurringTransaction {
+ id String @id @default(cuid())
+ householdId String
+ household Household @relation(fields: [householdId],references: [id])
+ description String
+ amount Int
+ frequency String
+ interval Int @default(1)
+ anchorDay Int
+ anchorMonth Int
+ nextDate DateTime
+ active Boolean @default(true)
+ template Json
+ transactions Transaction[]
+}
+model Attachment {
+ id String @id @default(cuid())
+ transactionId String?
+ transaction Transaction? @relation(fields: [transactionId], references: [id])
+ externalImportId String?
+ externalImport ExternalImport? @relation(fields: [externalImportId], references: [id])
+ fileName String @map("filename")
+ mimeType String
+ storagePath String @map("storageKey")
+ fileSize Int @default(0)
+ source TransactionSource @default(MANUAL)
+ householdId String?
+ createdAt DateTime @default(now())
+}
+model ExternalImport {
+ id String @id @default(cuid())
+ householdId String
+ household Household @relation(fields: [householdId],references: [id])
+ source TransactionSource
+ externalId String
+ status String @default("PENDENTE")
+ payload Json
+ attachments Attachment[]
+ createdAt DateTime @default(now())
+ @@unique([householdId, source, externalId])
+}
+model Tag {
+ id String @id @default(cuid())
+ householdId String
+ household Household @relation(fields: [householdId],references: [id])
+ name String
+ @@unique([householdId,name])
+}
+
+model InvoicePayment {
+ id String @id @default(cuid())
+ invoiceId String
+ invoice Invoice @relation(fields: [invoiceId],references: [id])
+ transactionId String @unique
+ transaction Transaction @relation(fields: [transactionId],references: [id])
+ @@index([invoiceId])
+}
+model Installment {
+ id String @id @default(cuid())
+ purchaseId String
+ purchase InstallmentPurchase @relation(fields: [purchaseId],references: [id])
+ transactionId String @unique
+ transaction Transaction @relation(fields: [transactionId],references: [id])
+ number Int
+ @@unique([purchaseId,number])
+}

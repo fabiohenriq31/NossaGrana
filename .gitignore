@@ -1,0 +1,42 @@
+# Dependências e artefatos de build
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.pnpm-store/
+
+# Ambiente e credenciais locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dados locais, cópias de banco e arquivos temporários
+.local/
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.log
+*.tmp
+
+# Execuções e capturas locais (podem conter dados financeiros)
+test-results/
+playwright-report/
+docs/screenshots/
+docs/*-qa.json
+docs/*-verification.json
+docs/security-check.json
+docs/supabase-preflight.json
+
+# Ferramentas e configurações pessoais
+.codex/
+.agents/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
