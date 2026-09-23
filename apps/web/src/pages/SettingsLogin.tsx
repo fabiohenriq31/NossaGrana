@@ -65,7 +65,7 @@ export function LoginPage({ onLogin }: { onLogin: () => Promise<void> }) {
             />
           </label>
           <Button type="submit" disabled={busy}>
-            {busy ? "Entrando…" : "Entrar na NossaGrana"}
+            {busy ? "Entrando…" : "Entrar no Coflu"}
           </Button>
         </form>
         <p className="login-private">

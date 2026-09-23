@@ -40,7 +40,7 @@ try {
   await page.goto(base);
   await page.getByLabel("E-mail", { exact: true }).fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Entrar na NossaGrana" }).click();
+  await page.getByRole("button", { name: "Entrar no Coflu" }).click();
   await expect(page.locator(".desktop-dashboard h1")).toBeVisible();
   errors.length = 0;
   await page.goto(base + "/configuracoes");

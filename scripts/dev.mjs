@@ -20,7 +20,7 @@ for (const args of [
   );
 }
 console.log(
-  "NossaGrana em http://127.0.0.1:5173. API conectada exclusivamente ao DATABASE_URL configurado.",
+  "Coflu em http://127.0.0.1:5173. API conectada exclusivamente ao DATABASE_URL configurado.",
 );
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {

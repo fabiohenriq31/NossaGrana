@@ -39,7 +39,7 @@ export function Logo() {
   return (
     <span className="logo">
       <img src="/favicon.svg" alt="" />
-      <span>NossaGrana</span>
+      <span>Coflu</span>
     </span>
   );
 }

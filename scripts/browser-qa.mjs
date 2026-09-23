@@ -28,7 +28,7 @@ const login = async (e, p) => {
   await page.goto(base);
   await page.getByLabel("E-mail", { exact: true }).fill(e);
   await page.getByLabel("Senha", { exact: true }).fill(p);
-  await page.getByRole("button", { name: "Entrar na NossaGrana" }).click();
+  await page.getByRole("button", { name: "Entrar no Coflu" }).click();
   await expect(page.locator(".desktop-dashboard h1")).toBeVisible({
     timeout: 20000,
   });
@@ -108,7 +108,7 @@ const tx = async ({
 };
 try {
   await login(
-    process.env.FABIO_EMAIL || "fabio@nossagrana.local",
+    process.env.FABIO_EMAIL || "fabio@coflu.local",
     process.env.FABIO_PASSWORD,
   );
   const real = await read();
@@ -131,7 +131,7 @@ try {
   await context.clearCookies();
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(
-    process.env.BIANCA_EMAIL || "bianca@nossagrana.local",
+    process.env.BIANCA_EMAIL || "bianca@coflu.local",
     process.env.BIANCA_PASSWORD,
   );
   await expect(page.locator(".desktop-dashboard h1")).toContainText("Bianca");

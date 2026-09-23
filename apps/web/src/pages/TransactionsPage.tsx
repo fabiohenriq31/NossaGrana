@@ -81,7 +81,7 @@ export function TransactionsPage({
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "nossagrana-" + month + ".csv";
+    a.download = "coflu-" + month + ".csv";
     a.click();
     URL.revokeObjectURL(url);
   }

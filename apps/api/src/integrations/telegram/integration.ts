@@ -309,7 +309,7 @@ export class TelegramIntegration {
       await confirmSuggestion(event.senderId, s.id, token.version);
       await this.deps.telegram.send(
         event.chatId,
-        "✅ Lançamento salvo na NossaGrana. Seus saldos e relatórios já consideram essa movimentação.",
+        "✅ Lançamento salvo no Coflu. Seus saldos e relatórios já consideram essa movimentação.",
       );
     } else if (token.action === "reject") {
       await rejectSuggestion(event.senderId, s.id, token.version);
@@ -437,8 +437,8 @@ export class TelegramIntegration {
         who
           ? "Olá, " +
               who.user.name +
-              "! 👋\n\nSeu Telegram está conectado à NossaGrana.\nEnvie um comprovante, print ou PDF e eu preparo o lançamento para você conferir antes de salvar."
-          : "Entre na NossaGrana e abra Configurações → Telegram → Conectar Telegram.",
+              "! 👋\n\nSeu Telegram está conectado ao Coflu.\nEnvie um comprovante, print ou PDF e eu preparo o lançamento para você conferir antes de salvar."
+          : "Entre no Coflu e abra Configurações → Telegram → Conectar Telegram.",
       );
       return;
     }

@@ -327,7 +327,7 @@ export async function ownedSuggestion(senderId: string, id: string) {
   if (!who)
     throw new IntegrationError(
       "UNLINKED",
-      "Conecte o Telegram nas Configurações da NossaGrana.",
+      "Conecte o Telegram nas Configurações do Coflu.",
     );
   const s = await prisma.transactionSuggestion.findFirst({
     where: { id, userId: who.userId, householdId: who.user.householdId },

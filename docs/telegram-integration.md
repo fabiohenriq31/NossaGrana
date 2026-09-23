@@ -1,4 +1,4 @@
-# Telegram + OpenAI — NossaGrana
+# Telegram + OpenAI — Coflu
 
 Implementado como entrada adicional da aplicação existente. A identidade visual e o serviço financeiro foram preservados. O bot prepara **sugestões**; somente o botão **Confirmar**, acionado pelo usuário vinculado, chama o serviço existente de criação de transações.
 
@@ -67,7 +67,7 @@ Abra o frontend local, entre e use Configurações → Telegram. Para receber me
 
 ## Conectar Fábio e Bianca
 
-Cada pessoa precisa fazer a vinculação em sua própria sessão da NossaGrana:
+Cada pessoa precisa fazer a vinculação em sua própria sessão do Coflu:
 
 1. Fábio entra com seu e-mail/senha existentes.
 2. Abre Configurações → Telegram → Conectar Telegram.

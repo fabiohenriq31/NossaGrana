@@ -1,4 +1,4 @@
-# Contrato visual NossaGrana
+# Contrato visual Coflu
 
 Fonte: imagem fornecida pelo usuário. A área desktop da referência é a aplicação; o telefone e as miniaturas são demonstrações das outras telas, não elementos a inserir no dashboard.
 

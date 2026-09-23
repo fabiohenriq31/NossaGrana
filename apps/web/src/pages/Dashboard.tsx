@@ -305,7 +305,7 @@ export function Dashboard({
             <small>
               Olá, {data.user.name}! <span>👋</span>
             </small>
-            <h1>NossaGrana!</h1>
+            <h1>Coflu!</h1>
           </div>
           <Button
             variant="ghost"

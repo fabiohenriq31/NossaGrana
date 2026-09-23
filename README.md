@@ -1,4 +1,4 @@
-# NossaGrana
+# Coflu
 
 Finanças compartilhadas de Fábio e Bianca, com a composição visual aprovada: dashboard escuro, sete indicadores, gráficos, listas, cartões, tema claro e navegação própria no celular.
 
@@ -23,7 +23,7 @@ pnpm db:init-real
 pnpm dev
 ```
 
-Abra [NossaGrana](http://127.0.0.1:5173). Mantenha o terminal em execução. Para iniciar separadamente: pnpm dev:api e pnpm dev:web. O Vite encaminha /api ao Fastify em 127.0.0.1:3001. pnpm build valida TypeScript e gera o frontend em apps/web/dist.
+Abra [Coflu](http://127.0.0.1:5173). Mantenha o terminal em execução. Para iniciar separadamente: pnpm dev:api e pnpm dev:web. O Vite encaminha /api ao Fastify em 127.0.0.1:3001. pnpm build valida TypeScript e gera o frontend em apps/web/dist.
 
 Os segredos ficam no .env local do backend. Não é necessário cadastrá-los em funções do Supabase, porque esta API roda no Node/Fastify. Em uma futura hospedagem, configure essas mesmas variáveis no ambiente privado do servidor, APP_ORIGIN com a origem HTTPS real e NODE_ENV=production. Não publique variáveis VITE_ com segredos.
 
@@ -33,7 +33,7 @@ Documentação oficial: [Prisma com Supabase](https://supabase.com/docs/guides/d
 
 pnpm db:init-real cria apenas o household nossagrana-family, os usuários Fábio e Bianca e os catálogos de bancos e categorias. Não cria contas, cartões, saldos, compras ou faturas.
 
-Os e-mails padrão, caso não configurados, são fabio@nossagrana.local e bianca@nossagrana.local. As senhas iniciais são as variáveis FABIO_PASSWORD e BIANCA_PASSWORD do .env. Se estiverem ausentes ou com o placeholder configure-me, a inicialização gera senhas aleatórias e grava somente nesse arquivo local, sem imprimi-las. Guarde-as e altere-as em Configurações após entrar.
+Em novas instalações, os e-mails padrão, caso não configurados, são fabio@coflu.local e bianca@coflu.local. Nas instalações existentes, preserve os e-mails de acesso configurados no ambiente e no banco. As senhas iniciais são as variáveis FABIO_PASSWORD e BIANCA_PASSWORD do .env. Se estiverem ausentes ou com o placeholder configure-me, a inicialização gera senhas aleatórias e grava somente nesse arquivo local, sem imprimi-las. Guarde-as e altere-as em Configurações após entrar.
 
 A inicialização é idempotente e não redefine senhas de usuários existentes. A alteração de senha exige a atual e encerra as sessões antigas. Os dois usuários compartilham o mesmo núcleo financeiro.
 
@@ -118,7 +118,7 @@ Logos bancários são ativos estáticos de identificação. Fontes: [Simple Icon
 
 ## GitHub
 
-Repositório: [fabiohenriq31/NossaGrana](https://github.com/fabiohenriq31/NossaGrana).
+Repositório: [Repositório Coflu](https://github.com/fabiohenriq31/NossaGrana).
 
 O .gitignore exclui ambientes reais, dados locais, dependências, builds, capturas e relatórios JSON gerados pelos testes. As evidências citadas acima são geradas localmente ao executar os scripts. Somente .env.example, com placeholders, deve ser versionado. Antes de cada publicação, execute node scripts/security-check.mjs e revise git diff --cached.
 

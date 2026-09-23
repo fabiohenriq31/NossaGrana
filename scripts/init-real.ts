@@ -24,7 +24,7 @@ const users = [
   {
     id: "nossagrana-fabio",
     name: "Fábio",
-    email: value("FABIO_EMAIL", () => "fabio@nossagrana.local"),
+    email: value("FABIO_EMAIL", () => "fabio@coflu.local"),
     password: value("FABIO_PASSWORD", () =>
       randomBytes(18).toString("base64url"),
     ),
@@ -32,7 +32,7 @@ const users = [
   {
     id: "nossagrana-bianca",
     name: "Bianca",
-    email: value("BIANCA_EMAIL", () => "bianca@nossagrana.local"),
+    email: value("BIANCA_EMAIL", () => "bianca@coflu.local"),
     password: value("BIANCA_PASSWORD", () =>
       randomBytes(18).toString("base64url"),
     ),
