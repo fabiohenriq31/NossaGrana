@@ -88,8 +88,38 @@ export const accountInput = z
     active: z.boolean().default(true),
   })
   .strict();
+export const openingBalancesInput = z
+  .object({
+    balances: z
+      .array(
+        z
+          .object({
+            competence: z
+              .string()
+              .regex(/^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/, "Mês inválido."),
+            amount: z.number().int().min(0).max(1000000000),
+          })
+          .strict(),
+      )
+      .superRefine((rows, context) => {
+        const months = new Set<string>();
+        for (const row of rows) {
+          if (months.has(row.competence))
+            context.addIssue({
+              code: "custom",
+              message: "Informe cada mês apenas uma vez.",
+            });
+          months.add(row.competence);
+        }
+      }),
+  })
+  .strict();
+export type OpeningBalanceInput = z.infer<
+  typeof openingBalancesInput
+>["balances"];
 export const cardInput = z
   .object({
+    openingBalances: openingBalancesInput.shape.balances.optional(),
     bankId: z.string().min(1),
     name: z.string().trim().min(2).max(80),
     owner: person,

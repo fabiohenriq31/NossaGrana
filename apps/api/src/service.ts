@@ -3,9 +3,12 @@ import { atomic, prisma } from "./db";
 import {
   transactionInput,
   type TransactionInput,
+  type OpeningBalanceInput,
 } from "../../../packages/shared/src/validation";
 import {
   accountBalance,
+  cardCommitment,
+  invoiceAmounts,
   addMonths,
   invoiceDates,
   splitInstallments,
@@ -78,10 +81,79 @@ export async function cardUsed(
       ...(exclude ? { id: { not: exclude } } : {}),
     },
   });
-  return rows.reduce(
-    (s, t) => s + (t.paymentInvoiceId ? -t.amount : t.amount),
-    0,
-  );
+  const openings = await tx.invoice.findMany({
+    where: { cardId },
+    select: { openingBalance: true },
+  });
+  return cardCommitment(openings, rows);
+}
+// PUT replaces the per-cycle snapshot, never increments it. Serializable retries
+// and the existing unique(cardId, competence) make repeated saves idempotent.
+export async function saveOpeningBalances(
+  tx: Prisma.TransactionClient,
+  h: string,
+  cardId: string,
+  balances: OpeningBalanceInput,
+) {
+  await owned(tx, "creditCard", cardId, h);
+  const card = await tx.creditCard.findUniqueOrThrow({ where: { id: cardId } });
+  if (!card.active) fail("O cartão está arquivado.");
+  const existing = await tx.invoice.findMany({ where: { cardId } });
+  const next = new Map(balances.map((row) => [row.competence, row.amount]));
+  for (const invoice of existing) {
+    const value = next.get(invoice.competence) || 0;
+    if (value !== invoice.openingBalance) {
+      if (
+        await tx.transaction.count({
+          where: { paymentInvoiceId: invoice.id, status: "CONFIRMADA" },
+        })
+      )
+        fail(
+          "Esta fatura possui pagamentos. Estorne os pagamentos antes de alterar o saldo inicial.",
+        );
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          openingBalance: value,
+          openingBalanceDate: value
+            ? invoice.openingBalanceDate ||
+              new Date(
+                new Date().toLocaleDateString("sv-SE", {
+                  timeZone: "America/Sao_Paulo",
+                }) + "T12:00:00Z",
+              )
+            : null,
+        },
+      });
+    }
+    next.delete(invoice.competence);
+  }
+  for (const [competence, openingBalance] of next) {
+    if (!openingBalance) continue;
+    const dates = invoiceDates(
+      new Date(competence + "-01T12:00:00Z"),
+      card.closingDay,
+      card.dueDay,
+    );
+    await tx.invoice.create({
+      data: {
+        cardId,
+        ...dates,
+        openingBalance,
+        openingBalanceDate: new Date(
+          new Date().toLocaleDateString("sv-SE", {
+            timeZone: "America/Sao_Paulo",
+          }) + "T12:00:00Z",
+        ),
+      },
+    });
+  }
+  if ((await cardUsed(tx, cardId)) > card.limit)
+    fail("Os valores informados ultrapassam o limite disponível do cartão.");
+  return tx.invoice.findMany({
+    where: { cardId, openingBalance: { gt: 0 } },
+    orderBy: { competence: "asc" },
+  });
 }
 export async function protectInvoice(
   tx: Prisma.TransactionClient,
@@ -279,13 +351,11 @@ export async function overview(
     prisma.bank.findMany({ orderBy: { name: "asc" } }),
   ]);
   const invoices = invoiceRows.map(({ transactions, payments, ...i }) => {
-    const total = transactions
-        .filter((t) => t.status === "CONFIRMADA")
-        .reduce((s, t) => s + t.amount, 0),
-      paid = payments
-        .filter((t) => t.status === "CONFIRMADA")
-        .reduce((s, t) => s + t.amount, 0),
-      remaining = total - paid;
+    const { total, paid, remaining } = invoiceAmounts({
+      ...i,
+      transactions,
+      payments,
+    });
     return {
       ...i,
       total,
@@ -312,9 +382,16 @@ export async function overview(
       ),
     })),
     cards: cards.map((c) => {
-      const used = invoices
-        .filter((i) => i.cardId === c.id)
-        .reduce((s, i) => s + i.remaining, 0);
+      const cardInvoices = invoices.filter((i) => i.cardId === c.id);
+      const ids = new Set(cardInvoices.map((i) => i.id));
+      const used = cardCommitment(
+        cardInvoices,
+        transactions.filter(
+          (t) =>
+            t.cardId === c.id ||
+            (t.paymentInvoiceId && ids.has(t.paymentInvoiceId)),
+        ),
+      );
       return { ...c, used, available: c.limit - used };
     }),
     categories,

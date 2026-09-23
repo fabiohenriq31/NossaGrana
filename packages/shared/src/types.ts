@@ -68,6 +68,8 @@ export interface Transaction {
   recurringId: string | null;
 }
 export interface Invoice {
+  openingBalance: number;
+  openingBalanceDate: string | null;
   id: string;
   cardId: string;
   competence: string;

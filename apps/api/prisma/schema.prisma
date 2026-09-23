@@ -134,6 +134,8 @@ model Invoice {
   cardId         String
   card           CreditCard       @relation(fields: [cardId], references: [id])
   competence     String
+  openingBalance Int              @default(0)
+  openingBalanceDate DateTime?      @db.Date
   closingDate    DateTime
   dueDate        DateTime
   transactions   Transaction[]    @relation("InvoicePurchases")

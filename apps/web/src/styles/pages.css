@@ -739,3 +739,110 @@
 .invoice-transactions button:hover {
   text-decoration: underline;
 }
+
+/* Initial invoice values reuse the existing form and card tokens. */
+.opening-balances {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.opening-balances fieldset,
+.opening-form {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.opening-balances legend,
+.opening-balances h3,
+.card-upcoming h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.opening-balances .opening-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.opening-choice input[type="radio"] {
+  width: auto;
+}
+.opening-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.opening-row label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.opening-row input {
+  width: 100%;
+  min-width: 0;
+}
+.opening-row-note {
+  grid-column: 1 / -1;
+}
+.opening-total,
+.card-upcoming > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.opening-total {
+  padding: 12px 0;
+}
+.card-upcoming {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.card-upcoming a {
+  color: inherit;
+}
+.invoice-opening {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.invoice-opening > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+@media (max-width: 480px) {
+  .opening-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .opening-row > .opening-cycle {
+    grid-column: 1 / -1;
+  }
+}
+
+.opening-cycle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px;
+  gap: 8px;
+  min-width: 0;
+}
+.opening-cycle select {
+  width: 100%;
+  min-width: 0;
+}
+.card-limit-facts {
+  grid-template-columns: 1fr;
+  margin: 16px 0;
+}
+.opening-row {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+}
+@media (max-width: 480px) {
+  .opening-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

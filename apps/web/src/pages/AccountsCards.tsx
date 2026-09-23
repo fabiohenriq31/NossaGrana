@@ -14,7 +14,9 @@ import {
   MonthSelector,
 } from "@/components/common";
 import { CreditCardVisual } from "@/components/CreditCardVisual";
-import { dateLabel } from "@/lib/utils";
+import { OpeningBalancesDialog } from "@/components/OpeningBalances";
+import { Link } from "react-router-dom";
+import { dateLabel, monthLabel } from "@/lib/utils";
 export function AccountsPage({
   data,
   onEdit,
@@ -80,11 +82,14 @@ export function CardsPage({
   data,
   month,
   onEdit,
+  refresh,
 }: {
   data: Overview;
   month: string;
   onEdit: (c?: CreditCard) => void;
+  refresh: () => Promise<void>;
 }) {
+  const [openingCard, setOpeningCard] = useState<CreditCard | null>(null);
   return (
     <>
       <div className="page-heading">
@@ -117,11 +122,56 @@ export function CardsPage({
               {c.owner} · {c.brand}
               <span>{c.active ? "Ativo" : "Arquivado"}</span>
             </div>
+            <div className="invoice-facts card-limit-facts">
+              <span>
+                Limite total
+                <b>
+                  <CurrencyValue value={c.limit} />
+                </b>
+              </span>
+              <span>
+                Limite comprometido
+                <b>
+                  <CurrencyValue value={c.used} />
+                </b>
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              disabled={!c.active}
+              onClick={() => setOpeningCard(c)}
+            >
+              Valores iniciais
+            </Button>
+            <div className="card-upcoming">
+              <h3>Próximas faturas</h3>
+              {data.invoices
+                .filter((i) => i.cardId === c.id && i.remaining > 0)
+                .map((i) => (
+                  <div key={i.id}>
+                    <Link to={"/faturas?month=" + i.competence}>
+                      {monthLabel(i.competence)}
+                    </Link>
+                    <CurrencyValue value={i.remaining} />
+                  </div>
+                ))}
+              {!data.invoices.some(
+                (i) => i.cardId === c.id && i.remaining > 0,
+              ) && <p className="muted">Nenhuma fatura em aberto.</p>}
+            </div>
           </section>
         ))}
       </div>
       {!data.cards.length && (
         <EmptyState text="Adicione um cartão de crédito." />
+      )}
+      {openingCard && (
+        <OpeningBalancesDialog
+          card={openingCard}
+          invoices={data.invoices.filter((i) => i.cardId === openingCard.id)}
+          close={() => setOpeningCard(null)}
+          refresh={refresh}
+        />
       )}
       <p className="privacy-note">
         <LockKeyhole size={14} /> Somente os últimos quatro dígitos são
@@ -218,6 +268,16 @@ export function InvoicesPage({
               </div>
               {detail === i.id && (
                 <div className="invoice-transactions">
+                  {i.openingBalance > 0 && (
+                    <section className="invoice-opening">
+                      <h3>Valores anteriores ao Coflu</h3>
+                      <div>
+                        <span>Saldo inicial/importado</span>
+                        <CurrencyValue value={i.openingBalance} />
+                      </div>
+                    </section>
+                  )}
+                  <h3>Lançamentos</h3>
                   {data.transactions
                     .filter(
                       (t) =>

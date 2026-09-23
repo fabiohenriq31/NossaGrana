@@ -1,10 +1,11 @@
-import { nextOccurrence } from "./domain";
+import { nextOccurrence, invoiceAmounts } from "./domain";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { atomic } from "./db";
 import {
   accountInput,
   cardInput,
+  openingBalancesInput,
   categoryInput,
   transactionInput,
   recurrenceInput,
@@ -18,6 +19,7 @@ import {
   createTransaction,
   validateReferences,
   cardUsed,
+  saveOpeningBalances,
   protectInvoice,
   generateRecurrences,
 } from "./service";
@@ -43,6 +45,7 @@ export async function financialRoutes(app: FastifyInstance) {
             )
               fail("Banco inválido.");
             const data: Record<string, unknown> = { ...parsed, householdId: h };
+            delete data.openingBalances;
             if (model === "account") {
               const v = accountInput.parse(parsed);
               data.openingDate = new Date(v.openingDate + "T12:00:00Z");
@@ -84,7 +87,7 @@ export async function financialRoutes(app: FastifyInstance) {
                   fail(
                     "Dias de fechamento e vencimento ficam preservados quando já existem faturas.",
                   );
-                if (v.limit < (await cardUsed(tx, id)))
+                if (!v.openingBalances && v.limit < (await cardUsed(tx, id)))
                   fail("O limite não pode ser menor que o valor utilizado.");
               }
             }
@@ -92,9 +95,20 @@ export async function financialRoutes(app: FastifyInstance) {
               create: (v: unknown) => Promise<unknown>;
               update: (v: unknown) => Promise<unknown>;
             };
-            return id
+            const result = await (id
               ? repository.update({ where: { id }, data })
-              : repository.create({ data });
+              : repository.create({ data }));
+            if (model === "creditCard") {
+              const v = cardInput.parse(parsed);
+              if (v.openingBalances)
+                await saveOpeningBalances(
+                  tx,
+                  h,
+                  (result as { id: string }).id,
+                  v.openingBalances,
+                );
+            }
+            return result;
           });
         },
       });
@@ -116,6 +130,8 @@ export async function financialRoutes(app: FastifyInstance) {
               )
             )
               fail("Categoria vinculada a uma recorrência.");
+            if (await tx.transaction.count({ where: { categoryId: id } }))
+              fail("Este registro possui movimentações vinculadas.", 409);
             return tx.category.delete({ where: { id } });
           }
           return (
@@ -124,6 +140,34 @@ export async function financialRoutes(app: FastifyInstance) {
         }),
     );
   }
+  app.get<{ Params: { id: string } }>(
+    "/api/cards/:id/opening-balances",
+    async (req) =>
+      atomic(async (tx) => {
+        await owned(tx, "creditCard", req.params.id, req.user.householdId);
+        const invoices = await tx.invoice.findMany({
+          where: { cardId: req.params.id, openingBalance: { gt: 0 } },
+          include: { payments: true },
+          orderBy: { competence: "asc" },
+        });
+        return {
+          balances: invoices.map((i) => ({
+            competence: i.competence,
+            amount: i.openingBalance,
+            locked: i.payments.some((p) => p.status === "CONFIRMADA"),
+          })),
+        };
+      }),
+  );
+  app.put<{ Params: { id: string } }>(
+    "/api/cards/:id/opening-balances",
+    async (req) => {
+      const { balances } = openingBalancesInput.parse(req.body);
+      return atomic((tx) =>
+        saveOpeningBalances(tx, req.user.householdId, req.params.id, balances),
+      );
+    },
+  );
   app.post<{ Params: { id: string } }>(
     "/api/categories/:id/subcategories",
     async (req) => {
@@ -282,13 +326,7 @@ export async function financialRoutes(app: FastifyInstance) {
         include: { transactions: true, payments: true, card: true },
       });
       if (!invoice) fail("Fatura não encontrada.", 404);
-      const remaining =
-        invoice.transactions
-          .filter((t) => t.status === "CONFIRMADA")
-          .reduce((s, t) => s + t.amount, 0) -
-        invoice.payments
-          .filter((t) => t.status === "CONFIRMADA")
-          .reduce((s, t) => s + t.amount, 0);
+      const { remaining } = invoiceAmounts(invoice);
       if (v.amount > remaining)
         fail("O pagamento excede o valor restante da fatura.");
       const t = await tx.transaction.create({

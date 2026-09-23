@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import type { Overview } from "../../../packages/shared/src/types";
 import { api, fetchOverview } from "./lib/api";
@@ -25,6 +25,16 @@ export default function App() {
     [search, setSearch] = useState(""),
     [editor, setEditor] = useState<EditorState>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  useEffect(() => {
+    const requested = new URLSearchParams(location.search).get("month");
+    if (
+      location.pathname === "/faturas" &&
+      requested &&
+      /^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(requested)
+    )
+      setMonth(requested);
+  }, [location.pathname, location.search]);
   const requestVersion = useRef(0);
   useEffect(() => {
     document.documentElement.className = theme;
@@ -155,6 +165,7 @@ export default function App() {
               path="/cartoes"
               element={
                 <CardsPage
+                  refresh={refresh}
                   data={data}
                   month={month}
                   onEdit={(item) => setEditor({ kind: "card", item })}

@@ -10,6 +10,7 @@ import type {
   Category,
   Invoice,
 } from "../../../../packages/shared/src/types";
+import { OpeningBalancesFields, readOpeningBalances } from "./OpeningBalances";
 import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { BankLogo } from "./common";
@@ -624,7 +625,7 @@ export function Editor({
   const title =
     state.kind === "pay"
       ? "Pagar fatura"
-      : (state.item ? "Editar " : "Nova ") +
+      : (state.item ? "Editar " : state.kind === "card" ? "Novo " : "Nova ") +
         {
           transaction: "transação",
           account: "conta",
@@ -721,6 +722,7 @@ export function Editor({
           brand: str("brand"),
           last4: str("last4"),
           limit: parseMoney(str("limit")),
+          ...(!state.item ? { openingBalances: readOpeningBalances(f) } : {}),
           closingDay: Number(str("closingDay")),
           dueDay: Number(str("dueDay")),
           paymentAccountId: id("paymentAccountId"),
@@ -749,7 +751,11 @@ export function Editor({
       toast.success("Salvo com sucesso.");
       close();
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        (e as Error).name === "ZodError"
+          ? "Confira os meses e valores iniciais. Não repita meses e use valores positivos em reais, como 2.500,00."
+          : (e as Error).message,
+      );
     } finally {
       setBusy(false);
     }
@@ -823,7 +829,12 @@ export function Editor({
                 />
               </>
             ) : (
-              <EntityFields state={state} data={data} />
+              <>
+                <EntityFields state={state} data={data} />
+                {state.kind === "card" && !state.item && (
+                  <OpeningBalancesFields onboarding />
+                )}
+              </>
             )}
           </div>
         </form>

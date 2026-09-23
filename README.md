@@ -94,6 +94,7 @@ Bucket previsto: financial-attachments, **privado**. SUPABASE_URL e SUPABASE_SER
 ## Validação
 
 ```sh
+# Configure TEST_DATABASE_URL para um PostgreSQL local isolado antes de testar.
 pnpm test
 pnpm build
 # Com frontend e API em execução:
@@ -145,3 +146,14 @@ Cada pessoa entra na própria conta e abre Configurações → Telegram → Cone
 Validação: pnpm typecheck, pnpm lint, pnpm test e pnpm build. A suíte simula os provedores externos e usa famílias isoladas no PostgreSQL. A verificação real opcional é pnpm exec tsx scripts/telegram-live-check.ts; ela consome chamadas OpenAI com documentos sintéticos.
 
 O [guia completo da integração](docs/telegram-integration.md) descreve ambientes, produção/local, bucket, webhook, vinculação de Fábio/Bianca, modelos Prisma, endpoints, idempotência, retenção, testes e limitações. A publicação e a vinculação real no Telegram são etapas separadas dos testes automatizados.
+
+
+## Valores iniciais de cartões
+
+No cadastro do cartão, escolha **Sim, adicionar valores existentes** e informe os valores por mês de fechamento. Em cartões existentes, use **Valores iniciais**. Cada mês é independente; não repita valores de compras já cadastradas.
+
+O saldo inicial compõe faturas e limite comprometido, separado das compras. Não aparece como nova despesa, categoria ou gasto por pessoa. Pagamentos parciais e integrais continuam debitando a conta e liberando limite, sem repetir despesas. Faturas com pagamentos exigem estorno antes de alterar o saldo inicial.
+
+A migration aditiva `20260923120000_invoice_opening_balance` deve estar aplicada antes de publicar a API; depois publique o frontend. O campo começa em zero para todas as faturas existentes.
+
+Consulte [modelagem, endpoints e relatório de validação](docs/opening-balances.md). A suíte completa exige `TEST_DATABASE_URL` local, usa execução sequencial e não utiliza a conexão de produção. A verificação visual é `node scripts/opening-balances-browser-qa.mjs`, com `DATABASE_URL` apontando explicitamente ao mesmo banco local da API de QA.

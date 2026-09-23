@@ -81,3 +81,39 @@ export function accountBalance(
     );
   }, initialBalance);
 }
+
+// Values are integer cents; pending/cancelled movements never consume limit.
+type Movement = { amount: number; status: string };
+export function confirmedAmount(rows: Movement[]) {
+  return rows.reduce(
+    (sum, row) => sum + (row.status === "CONFIRMADA" ? row.amount : 0),
+    0,
+  );
+}
+export function invoiceAmounts(invoice: {
+  openingBalance: number;
+  transactions: Movement[];
+  payments: Movement[];
+}) {
+  const total = invoice.openingBalance + confirmedAmount(invoice.transactions);
+  const paid = confirmedAmount(invoice.payments);
+  return { total, paid, remaining: total - paid };
+}
+export function cardCommitment(
+  openings: { openingBalance: number }[],
+  movements: (Movement & { paymentInvoiceId: string | null })[],
+) {
+  return (
+    openings.reduce((sum, row) => sum + row.openingBalance, 0) +
+    movements.reduce(
+      (sum, row) =>
+        sum +
+        (row.status === "CONFIRMADA"
+          ? row.paymentInvoiceId
+            ? -row.amount
+            : row.amount
+          : 0),
+      0,
+    )
+  );
+}

@@ -5,11 +5,12 @@ import bcrypt from "bcrypt";
 import { randomUUID } from "node:crypto";
 import { buildApp } from "../apps/api/src/app";
 import { prisma } from "../apps/api/src/db";
+import { banks } from "../scripts/reference-data";
 
-test("Supabase real: regras financeiras e persistência em núcleo de teste isolado", async (t) => {
+test("PostgreSQL: regras financeiras e persistência em núcleo de teste isolado", async (t) => {
   process.env.NODE_ENV = "test";
   process.env.APP_MODE = "REAL";
-  const realBefore = await prisma.household.findUnique({ where: { id: "nossagrana-family" }, include: { _count: { select: { accounts: true, cards: true, transactions: true } } } });
+
   let app = await buildApp(),
     cookie = "";
   const h = "test-" + randomUUID(),
@@ -57,6 +58,7 @@ test("Supabase real: regras financeiras e persistência em núcleo de teste isol
     invoice: any,
     payment: any;
   try {
+    await prisma.bank.createMany({data: banks, skipDuplicates: true});
     await prisma.household.createMany({
       data: [
         { id: h, name: "QA isolado" },
@@ -540,6 +542,14 @@ test("Supabase real: regras financeiras e persistência em núcleo de teste isol
       "persistência após reiniciar Fastify e reconectar Prisma; dados reais permanecem separados",
       async () => {
         const before = await read();
+        const foreignBefore = await prisma.household.findUniqueOrThrow({
+          where: { id: foreign },
+          include: {
+            _count: {
+              select: { accounts: true, cards: true, transactions: true },
+            },
+          },
+        });
         await app.close();
         await prisma.$disconnect();
         app = await buildApp();
@@ -548,7 +558,7 @@ test("Supabase real: regras financeiras e persistência em núcleo de teste isol
         assert.equal(after.transactions.length, before.transactions.length);
         assert.ok(after.accounts.every((x: any) => x.householdId === h));
         const real = await prisma.household.findUnique({
-          where: { id: "nossagrana-family" },
+          where: { id: foreign },
           include: {
             _count: {
               select: { accounts: true, cards: true, transactions: true },
@@ -556,7 +566,7 @@ test("Supabase real: regras financeiras e persistência em núcleo de teste isol
           },
         });
         assert.ok(real);
-        assert.deepEqual(real._count, realBefore?._count);
+        assert.deepEqual(real._count, foreignBefore._count);
       },
     );
   } finally {

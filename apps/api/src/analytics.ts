@@ -93,6 +93,12 @@ export function analytics(data: Data, month: string): Analytics {
   const wealth = history.map((h) => {
     const end = h.month + "-31";
     const debt =
+      data.invoices
+        .filter(
+          (i) =>
+            i.openingBalanceDate && i.openingBalanceDate.slice(0, 10) <= end,
+        )
+        .reduce((sum, i) => sum + i.openingBalance, 0) +
       amount(
         data.transactions.filter(
           (t) =>

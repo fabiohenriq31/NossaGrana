@@ -8,7 +8,7 @@
     "dev:web": "vite --config apps/web/vite.config.ts",
     "dev:api": "tsx watch apps/api/src/server.ts",
     "build": "tsc --noEmit && vite build --config apps/web/vite.config.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "node scripts/run-tests.mjs",
     "db:generate": "prisma generate --schema apps/api/prisma/schema.prisma",
     "db:migrate": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
     "db:seed": "tsx apps/api/prisma/seed.ts",
