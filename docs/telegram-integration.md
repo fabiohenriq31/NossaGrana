@@ -83,7 +83,7 @@ Desconectar remove identidade, links e callbacks pendentes; lançamentos confirm
 
 - Envie uma foto, print ou PDF de até 10 MB em conversa privada.
 - Receba o resumo com valor, data, tipo, pagamento, categoria, conta/cartão e responsável.
-- Quando faltar informação ou houver duas contas do mesmo banco, escolha explicitamente. O sistema não cria contas nem categorias.
+- Quando faltar informação ou houver duas contas do mesmo banco, escolha explicitamente. O sistema não cria contas. Categorias não reconhecidas recebem Outros; se essa categoria estiver ausente, somente ela é criada no Household.
 - Use Editar para descrição, valor total, data, tipo, pagamento, conta, destino, cartão, categoria/subcategoria, responsável ou parcelas.
 - Valores digitados: 187,42 ou 187.42; datas: AAAA-MM-DD. /cancelar sai de uma edição textual.
 - Compras parceladas exigem revisar **valor TOTAL e quantidade de parcelas**. A integração não multiplica automaticamente valor de parcela.
@@ -211,3 +211,11 @@ Referências oficiais: [OpenAI Structured Outputs](https://developers.openai.com
 - Navegador Chrome: login, card, geração de link, desktop/mobile, tema claro/escuro; nenhum erro de console depois do login nem resposta 5xx.
 - Auditoria de secrets: nenhum segredo encontrado e nenhum .env real rastreado pelo Git.
 - Não executados: publicação desta versão, registro do webhook de produção, vinculação real de Fábio/Bianca e confirmação humana de um comprovante real.
+
+## Ajuste de reconhecimento de comprovantes
+
+Para novos comprovantes, categoria ausente ou sem correspondência utiliza a categoria Outros do Household. A categoria é criada de forma idempotente somente se necessária. Uma categoria reconhecida continua sendo preservada; não são criadas categorias com nomes inventados pela IA nem subcategorias no fallback.
+
+O titular é comparado por palavras completas, permitindo o nome completo no campo De corresponder ao responsável abreviado do cadastro. Razões sociais de bancos são normalizadas (por exemplo, BANCO SANTANDER S.A. → Santander). Duas contas compatíveis continuam sem seleção automática. Em receitas, é considerado o destinatário. O prompt diferencia banco da origem e banco do destinatário. Lançamentos confirmados e extrações antigas não são reescritos.
+
+Validação deste ajuste: 18 testes (reconhecimento + domínio), typecheck e lint passaram. O teste de fallback usou família isolada no Supabase e verificou criação concorrente única de Outros, sem criar transações. A suíte de fila não foi executada contra o banco com worker de produção ativo para não misturar tarefas simuladas com mensagens reais.

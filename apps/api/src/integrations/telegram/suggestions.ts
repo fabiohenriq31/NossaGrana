@@ -40,6 +40,75 @@ export function categoryMatch<T extends Named>(
     ? uniqueMatch(items, (item) => normalize(item.name) === normalize(text))
     : null;
 }
+// Correspondência por palavras completas: nunca usar substring ("Ana" ≠ "Mariana").
+const words = (value: string) =>
+  normalize(value)
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+export function bankKey(value: string | null | undefined) {
+  const legal = new Set([
+    "banco",
+    "bank",
+    "s",
+    "a",
+    "sa",
+    "ltda",
+    "instituicao",
+    "de",
+    "do",
+    "da",
+    "pagamento",
+    "pagamentos",
+    "financeira",
+  ]);
+  const key = words(value || "")
+    .filter((word) => !legal.has(word))
+    .join(" ");
+  const aliases: Record<string, string> = {
+    nu: "nubank",
+    "itau unibanco": "itau",
+  };
+  return aliases[key] || key;
+}
+export function matchedOwner(receiptName: string, owners: string[]) {
+  const received = words(receiptName);
+  const scores = [...new Set(owners)].map((owner) => {
+    const known = words(owner);
+    const exact =
+      known.length === received.length &&
+      known.every((word, index) => word === received[index]);
+    const prefix =
+      known.length < received.length &&
+      known.every((word, index) => word === received[index]);
+    const score = exact
+      ? 3
+      : prefix && known[0]?.length >= 3 && normalize(owner) !== "casa"
+        ? 1
+        : 0;
+    return { owner, score };
+  });
+  const best = Math.max(0, ...scores.map((candidate) => candidate.score));
+  return best
+    ? uniqueMatch(scores, (candidate) => candidate.score === best)?.owner ||
+        null
+    : null;
+}
+async function defaultCategory(householdId: string) {
+  // Exceção explícita solicitada pelo usuário: somente a categoria reservada Outros.
+  const existing = await prisma.category.findFirst({
+    where: { householdId, name: { equals: "Outros", mode: "insensitive" } },
+  });
+  return (
+    existing ||
+    prisma.category.upsert({
+      where: { householdId_name: { householdId, name: "Outros" } },
+      update: {},
+      create: { householdId, name: "Outros", icon: "wallet", color: "#ffb547" },
+    })
+  );
+}
 export async function householdChoices(householdId: string) {
   const [accounts, cards, categories, users] = await Promise.all([
     prisma.account.findMany({
@@ -60,28 +129,61 @@ export async function householdChoices(householdId: string) {
 }
 export function matchExtraction(
   e: Extraction,
-  choices: Awaited<ReturnType<typeof householdChoices>>,
+  choices: {
+    accounts: { id: string; owner: string; bank: { name: string } }[];
+    cards: {
+      id: string;
+      owner: string;
+      bank: { name: string };
+      last4: string;
+    }[];
+    categories: {
+      id: string;
+      name: string;
+      subcategories: { id: string; name: string }[];
+    }[];
+    users: { name: string }[];
+  },
 ) {
-  const bank = normalize(e.bankName);
+  const bank = bankKey(e.bankName);
   const owner = e.transactionType === "INCOME" ? e.recipientName : e.payerName;
-  const bankMatch = (a: { bank: { name: string }; owner: string }) =>
-    !!bank &&
-    normalize(a.bank.name) === bank &&
-    (!owner || normalize(owner) === normalize(a.owner));
-  const account = uniqueMatch(choices.accounts, bankMatch);
+  const accountOwner = owner
+    ? matchedOwner(
+        owner,
+        choices.accounts.map((a) => a.owner),
+      )
+    : null;
+  const cardOwner = owner
+    ? matchedOwner(
+        owner,
+        choices.cards.map((c) => c.owner),
+      )
+    : null;
+  const account = uniqueMatch(
+    choices.accounts,
+    (a) =>
+      !!bank &&
+      bankKey(a.bank.name) === bank &&
+      (!owner || a.owner === accountOwner),
+  );
   const card =
     e.cardLast4 && /^\d{4}$/.test(e.cardLast4)
       ? uniqueMatch(
           choices.cards,
           (c) =>
             c.last4 === e.cardLast4 &&
-            (!bank || normalize(c.bank.name) === bank) &&
-            (!owner || normalize(c.owner) === normalize(owner)),
+            (!bank || bankKey(c.bank.name) === bank) &&
+            (!owner || c.owner === cardOwner),
         )
       : null;
-  const category = categoryMatch(choices.categories, e.categorySuggestion);
-  const subcategory = category
-    ? categoryMatch(category.subcategories, e.subcategorySuggestion)
+  const recognizedCategory = categoryMatch(
+    choices.categories,
+    e.categorySuggestion,
+  );
+  const category =
+    recognizedCategory || categoryMatch(choices.categories, "Outros");
+  const subcategory = recognizedCategory
+    ? categoryMatch(recognizedCategory.subcategories, e.subcategorySuggestion)
     : null;
   const ownName = (name: string | null) =>
     !!name && choices.users.some((u) => normalize(u.name) === normalize(name));
@@ -153,10 +255,15 @@ export async function saveSuggestion(
   analysis: Analysis,
 ) {
   const extraction = sanitizeExtraction(analysis.extraction);
-  const matched = matchExtraction(
-    extraction,
-    await householdChoices(householdId),
-  );
+  const choices = await householdChoices(householdId);
+  if (
+    !categoryMatch(choices.categories, extraction.categorySuggestion) &&
+    !categoryMatch(choices.categories, "Outros")
+  ) {
+    const fallback = await defaultCategory(householdId);
+    choices.categories.push({ ...fallback, subcategories: [] });
+  }
+  const matched = matchExtraction(extraction, choices);
   const identifier = identifierHash(analysis.extraction);
   const duplicateById = identifier
     ? await prisma.transactionSuggestion.findFirst({

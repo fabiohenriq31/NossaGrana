@@ -550,15 +550,29 @@ test("Telegram: fluxo real no banco isolado, provedores externos simulados", asy
       },
     );
     await t.test(
-      "categoria inexistente permanece vazia e não cria categorias",
+      "categoria desconhecida usa Outros sem criar a categoria inventada",
       async () => {
         const s = await newDocument({
           categorySuggestion: "Categoria inventada",
         });
-        assert.equal(s.suggestedCategoryId, null);
+        const fallback = await prisma.category.findUniqueOrThrow({
+          where: { id: s.suggestedCategoryId! },
+        });
+        assert.equal(fallback.name, "Outros");
+        const second = await newDocument({ categorySuggestion: null });
+        assert.equal(second.suggestedCategoryId, fallback.id);
         assert.equal(
           await prisma.category.count({ where: { householdId: h } }),
-          1,
+          2,
+        );
+        await confirmSuggestion(sender, second.id, second.version);
+        assert.equal(
+          (
+            await prisma.transaction.findFirstOrThrow({
+              where: { suggestionId: second.id },
+            })
+          ).categoryId,
+          fallback.id,
         );
       },
     );
