@@ -1,3 +1,4 @@
+import { TelegramIntegration } from "@/components/TelegramIntegration";
 import { useState, type FormEvent } from "react";
 import { LockKeyhole, LogOut, Sun, Moon } from "lucide-react";
 import { toast } from "sonner";
@@ -185,6 +186,7 @@ export function SettingsPage({
               </Button>
             </div>
           </ChartCard>
+          <TelegramIntegration />
           <ChartCard title="Nossa família">
             <div className="family-member">
               <span className="avatar">F</span>Fábio

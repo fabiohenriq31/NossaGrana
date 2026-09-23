@@ -2,7 +2,6 @@ import type {
   Overview,
   Transaction,
 } from "../../../../packages/shared/src/types";
-import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { CategoryIcon, EmptyState, CurrencyValue } from "./common";
 import { dateLabel, today } from "@/lib/utils";
 export function TransactionItem({

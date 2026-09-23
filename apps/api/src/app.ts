@@ -1,3 +1,5 @@
+import { TelegramIntegration } from "./integrations/telegram/integration";
+import { telegramRoutes, WEBHOOK_PATH } from "./integrations/telegram/routes";
 import { financialRoutes } from "./financial-routes";
 
 import Fastify from "fastify";
@@ -14,25 +16,9 @@ import { z, ZodError } from "zod";
 
 import { Prisma } from "@prisma/client";
 
-import { prisma, atomic } from "./db";
+import { prisma } from "./db";
 
-import {
-  accountInput,
-  cardInput,
-  categoryInput,
-  transactionInput,
-  recurrenceInput,
-  cents,
-  day,
-} from "../../../packages/shared/src/validation";
-
-import {
-  createTransaction,
-  owned,
-  overview,
-  fail,
-  generateRecurrences,
-} from "./service";
+import { overview, fail } from "./service";
 
 declare module "@fastify/jwt" {
   interface FastifyJWT {
@@ -42,7 +28,7 @@ declare module "@fastify/jwt" {
   }
 }
 
-export async function buildApp() {
+export async function buildApp(integration = new TelegramIntegration()) {
   const app = Fastify({ logger: process.env.NODE_ENV !== "test" }),
     secret = process.env.JWT_SECRET;
 
@@ -139,6 +125,7 @@ export async function buildApp() {
       fail("Origem não autorizada.", 403);
 
     if (
+      (req.method === "POST" && req.url.split("?")[0] === WEBHOOK_PATH) ||
       req.url.split("?")[0] === "/api/health" ||
       req.url.split("?")[0] === "/api/auth/login"
     )
@@ -308,6 +295,7 @@ export async function buildApp() {
   });
 
   await financialRoutes(app);
+  await telegramRoutes(app, integration);
 
   return app;
 }

@@ -44,6 +44,20 @@ export default function App() {
       })
       .finally(() => setLoading(false));
   }, [refresh]);
+  const authenticated = !!data;
+  useEffect(() => {
+    if (!authenticated) return;
+    const update = () => {
+      if (document.visibilityState === "visible")
+        void refresh().catch(() => {});
+    };
+    window.addEventListener("focus", update);
+    const timer = window.setInterval(update, 30000);
+    return () => {
+      window.removeEventListener("focus", update);
+      window.clearInterval(timer);
+    };
+  }, [authenticated, refresh]);
   async function logout() {
     try {
       await api("/auth/logout", { method: "POST" });

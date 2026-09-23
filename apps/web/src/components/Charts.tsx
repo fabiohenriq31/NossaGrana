@@ -99,7 +99,6 @@ export function CashflowChart({
 }
 export function CategoryChart({
   data,
-  month,
 }: {
   data: Overview;
   month: string;
@@ -160,7 +159,6 @@ export function CategoryChart({
 }
 export function PersonSpending({
   data,
-  month,
 }: {
   data: Overview;
   month: string;

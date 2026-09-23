@@ -1,6 +1,5 @@
 import type {
   Overview,
-  Transaction,
 } from "../../../../packages/shared/src/types";
 export function monthTransactions(data: Overview, month: string) {
   return data.transactions.filter(

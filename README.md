@@ -121,3 +121,27 @@ Logos bancários são ativos estáticos de identificação. Fontes: [Simple Icon
 Repositório: [fabiohenriq31/NossaGrana](https://github.com/fabiohenriq31/NossaGrana).
 
 O .gitignore exclui ambientes reais, dados locais, dependências, builds, capturas e relatórios JSON gerados pelos testes. As evidências citadas acima são geradas localmente ao executar os scripts. Somente .env.example, com placeholders, deve ser versionado. Antes de cada publicação, execute node scripts/security-check.mjs e revise git diff --cached.
+
+## Comprovantes pelo Telegram
+
+A integração Telegram + OpenAI está implementada com confirmação humana obrigatória. Envie imagem ou PDF; revise a sugestão e confirme no bot. Todas as gravações usam o serviço financeiro já existente.
+
+No backend, configure TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, OPENAI_API_KEY, OPENAI_FINANCE_MODEL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e SUPABASE_STORAGE_BUCKET. Use os placeholders de .env.example; nunca exponha essas chaves no frontend. O modelo padrão é gpt-4.1-mini e pode ser trocado por OPENAI_FINANCE_MODEL, seguido de reinício da API.
+
+~~~sh
+pnpm db:generate
+pnpm db:migrate
+pnpm telegram:setup
+~~~
+
+O setup verifica/cria o bucket privado financial-attachments. Após publicar esta versão da API, registre o webhook no backend:
+
+~~~sh
+pnpm telegram:setup https://nossagrana.onrender.com/api/integrations/telegram/webhook
+~~~
+
+Cada pessoa entra na própria conta e abre Configurações → Telegram → Conectar Telegram. O link é temporário e de uso único. O desenvolvimento local com Telegram real exige túnel HTTPS para a API e, preferencialmente, um bot separado; não combinar webhook e long polling.
+
+Validação: pnpm typecheck, pnpm lint, pnpm test e pnpm build. A suíte simula os provedores externos e usa famílias isoladas no PostgreSQL. A verificação real opcional é pnpm exec tsx scripts/telegram-live-check.ts; ela consome chamadas OpenAI com documentos sintéticos.
+
+O [guia completo da integração](docs/telegram-integration.md) descreve ambientes, produção/local, bucket, webhook, vinculação de Fábio/Bianca, modelos Prisma, endpoints, idempotência, retenção, testes e limitações. A publicação e a vinculação real no Telegram são etapas separadas dos testes automatizados.

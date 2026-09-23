@@ -1,7 +1,7 @@
 import { nextOccurrence } from "./domain";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { prisma, atomic } from "./db";
+import { atomic } from "./db";
 import {
   accountInput,
   cardInput,
@@ -42,7 +42,7 @@ export async function financialRoutes(app: FastifyInstance) {
               !(await tx.bank.findUnique({ where: { id: parsed.bankId } }))
             )
               fail("Banco inválido.");
-            let data: Record<string, unknown> = { ...parsed, householdId: h };
+            const data: Record<string, unknown> = { ...parsed, householdId: h };
             if (model === "account") {
               const v = accountInput.parse(parsed);
               data.openingDate = new Date(v.openingDate + "T12:00:00Z");

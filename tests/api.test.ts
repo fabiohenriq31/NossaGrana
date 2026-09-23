@@ -9,6 +9,7 @@ import { prisma } from "../apps/api/src/db";
 test("Supabase real: regras financeiras e persistência em núcleo de teste isolado", async (t) => {
   process.env.NODE_ENV = "test";
   process.env.APP_MODE = "REAL";
+  const realBefore = await prisma.household.findUnique({ where: { id: "nossagrana-family" }, include: { _count: { select: { accounts: true, cards: true, transactions: true } } } });
   let app = await buildApp(),
     cookie = "";
   const h = "test-" + randomUUID(),
@@ -340,7 +341,7 @@ test("Supabase real: regras financeiras e persistência em núcleo de teste isol
           }),
           3,
         );
-        let d = await read();
+        const d = await read();
         assert.equal(balance(d, a.id), before);
         assert.equal(d.cards[0].used, 13000);
         invoice = d.invoices.find((i: any) => i.competence === "2026-10");
@@ -555,11 +556,7 @@ test("Supabase real: regras financeiras e persistência em núcleo de teste isol
           },
         });
         assert.ok(real);
-        assert.deepEqual(real._count, {
-          accounts: 0,
-          cards: 0,
-          transactions: 0,
-        });
+        assert.deepEqual(real._count, realBefore?._count);
       },
     );
   } finally {
