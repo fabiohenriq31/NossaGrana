@@ -480,6 +480,13 @@ test("Telegram texto: confirmação, saldo, isolamento, revisão e reentrega", a
       const app = await buildApp(integration);
       try {
         const token = app.jwt.sign({ id: userId, householdId: h, version: 0 });
+        const status = await app.inject({
+          method: "GET",
+          url: "/api/integrations/telegram",
+          cookies: { ng_session: token },
+        });
+        assert.equal(status.statusCode, 200);
+        assert.equal(status.json().supportsText, true);
         const response = await app.inject({
           method: "GET",
           url: `/api/integrations/telegram/suggestions/${s.id}/attachment`,

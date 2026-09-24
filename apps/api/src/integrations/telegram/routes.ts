@@ -34,6 +34,7 @@ export async function telegramRoutes(
     });
     return {
       enabled: configured(),
+      supportsText: true,
       connected: !!row?.verified,
       username: row?.telegramUsername || null,
     };

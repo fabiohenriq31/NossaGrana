@@ -3,7 +3,12 @@ import { Send, Unplug, RefreshCw } from "lucide-react";
 import { ChartCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-type Status = { enabled: boolean; connected: boolean; username: string | null };
+type Status = {
+  enabled: boolean;
+  connected: boolean;
+  username: string | null;
+  supportsText?: boolean;
+};
 export function TelegramIntegration() {
   const [status, setStatus] = useState<Status | null>(null);
   const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(
@@ -55,7 +60,9 @@ export function TelegramIntegration() {
     <ChartCard title="Telegram">
       <div className="form-grid">
         <p className="full">
-          Envie comprovantes, imagens, PDFs ou descreva um lançamento por texto
+          {status?.supportsText
+            ? "Envie comprovantes, imagens, PDFs ou descreva um lançamento por texto"
+            : "Envie comprovantes, imagens ou PDFs"}{" "}
           e confira a sugestão no Telegram. O lançamento só é salvo quando você
           confirmar.
         </p>
