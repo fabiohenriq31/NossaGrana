@@ -7,7 +7,7 @@ import { accountBalance } from "./domain";
 type Data = Omit<Overview, "analytics">;
 const amount = (rows: { amount: number }[]) =>
   rows.reduce((s, t) => s + t.amount, 0);
-function monthly(data: Data, month: string): Summary {
+export function monthly(data: Data, month: string): Summary {
   const end = month + "-31",
     all = data.transactions.filter(
       (t) =>

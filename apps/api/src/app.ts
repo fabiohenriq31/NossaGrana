@@ -1,6 +1,8 @@
 import { TelegramIntegration } from "./integrations/telegram/integration";
 import { telegramRoutes, WEBHOOK_PATH } from "./integrations/telegram/routes";
 import { financialRoutes } from "./financial-routes";
+import { financialHealthRoutes } from "./financial-health/routes";
+import { FinancialCoachAI } from "./financial-health/coach";
 
 import Fastify from "fastify";
 
@@ -28,7 +30,7 @@ declare module "@fastify/jwt" {
   }
 }
 
-export async function buildApp(integration = new TelegramIntegration()) {
+export async function buildApp(integration = new TelegramIntegration(), coach = new FinancialCoachAI()) {
   const app = Fastify({ logger: process.env.NODE_ENV !== "test" }),
     secret = process.env.JWT_SECRET;
 
@@ -295,6 +297,7 @@ export async function buildApp(integration = new TelegramIntegration()) {
   });
 
   await financialRoutes(app);
+  await financialHealthRoutes(app, coach);
   await telegramRoutes(app, integration);
 
   return app;

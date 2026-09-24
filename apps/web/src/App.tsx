@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import type { Overview } from "../../../packages/shared/src/types";
@@ -14,6 +14,7 @@ import { AccountsPage, CardsPage, InvoicesPage } from "./pages/AccountsCards";
 import { PlanningPage, CalendarPage } from "./pages/PlanningCalendar";
 import { CategoriesPage, ReportsPage } from "./pages/CategoriesReports";
 import { SettingsPage, LoginPage } from "./pages/SettingsLogin";
+const FinancialHealthPage = lazy(() => import("./pages/FinancialHealth"));
 export default function App() {
   const [data, setData] = useState<Overview | null>(null),
     [loading, setLoading] = useState(true),
@@ -129,6 +130,7 @@ export default function App() {
           onNotifications={() => navigate("/planejamento")}
         >
           <Routes>
+            <Route path="/saude-financeira" element={<Suspense fallback={<LoadingSkeleton />}><FinancialHealthPage {...common} onNew={newTransaction} /></Suspense>} />
             <Route
               path="/"
               element={

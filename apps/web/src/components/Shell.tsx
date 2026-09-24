@@ -19,6 +19,7 @@ import {
   Bell,
   Ellipsis,
   House,
+  HeartPulse,
 } from "lucide-react";
 import { Dropdown } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
@@ -30,6 +31,7 @@ export const navItems = [
   ["/cartoes", "Cartões", CreditCard],
   ["/faturas", "Faturas", ReceiptText],
   ["/planejamento", "Planejamento", NotebookTabs],
+  ["/saude-financeira", "Saúde Financeira", HeartPulse],
   ["/calendario", "Calendário", CalendarDays],
   ["/relatorios", "Relatórios", ChartNoAxesCombined],
   ["/categorias", "Categorias", Tags],

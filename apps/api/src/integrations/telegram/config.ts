@@ -1,4 +1,5 @@
 import { timingSafeEqual, createHash, randomBytes } from "node:crypto";
+import { financeModel } from "../openai";
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const MIME_TYPES = [
   "image/jpeg",
@@ -13,7 +14,7 @@ export function config() {
   return {
     botToken: process.env.TELEGRAM_BOT_TOKEN || "",
     webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || "",
-    model: process.env.OPENAI_FINANCE_MODEL || "gpt-4.1-mini",
+    model: financeModel(),
     apiKey: process.env.OPENAI_API_KEY || "",
     storageUrl: process.env.SUPABASE_URL || "",
     storageKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",

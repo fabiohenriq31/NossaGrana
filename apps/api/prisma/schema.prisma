@@ -38,34 +38,46 @@ enum PaymentMethod {
 }
 
 model Household {
-  id           String                  @id @default(cuid())
-  name         String
-  mode         String                  @default("REAL")
-  users        User[]
-  accounts     Account[]
-  cards        CreditCard[]
-  categories   Category[]
-  transactions Transaction[]
-  recurrences  RecurringTransaction[]
-  tags         Tag[]
-  imports      ExternalImport[]
-  suggestions  TransactionSuggestion[]
-  attachments  Attachment[]
-  createdAt    DateTime                @default(now())
+  healthSettings          FinancialHealthSettings?
+  financialGoals          FinancialGoal[]
+  goalContributions       GoalContribution[]
+  monthlyGoals            MonthlyGoal[]
+  planItems               CofluPlanItem[]
+  recommendationDecisions FinancialRecommendationDecision[]
+  financialReviews        MonthlyFinancialReview[]
+  coachAnalyses           FinancialCoachAnalysis[]
+  id                      String                            @id @default(cuid())
+  name                    String
+  mode                    String                            @default("REAL")
+  users                   User[]
+  accounts                Account[]
+  cards                   CreditCard[]
+  categories              Category[]
+  transactions            Transaction[]
+  recurrences             RecurringTransaction[]
+  tags                    Tag[]
+  imports                 ExternalImport[]
+  suggestions             TransactionSuggestion[]
+  attachments             Attachment[]
+  createdAt               DateTime                          @default(now())
 }
 
 model User {
-  id            String                  @id @default(cuid())
-  name          String
-  email         String                  @unique
-  passwordHash  String
-  tokenVersion  Int                     @default(0)
-  telegram      TelegramIdentity?
-  telegramLinks TelegramLinkToken[]
-  suggestions   TransactionSuggestion[]
-  householdId   String
-  household     Household               @relation(fields: [householdId], references: [id])
-  createdAt     DateTime                @default(now())
+  createdGoals      FinancialGoal[]         @relation("GoalCreator")
+  personalGoals     FinancialGoal[]         @relation("GoalMember")
+  goalContributions GoalContribution[]
+  monthlyGoals      MonthlyGoal[]
+  id                String                  @id @default(cuid())
+  name              String
+  email             String                  @unique
+  passwordHash      String
+  tokenVersion      Int                     @default(0)
+  telegram          TelegramIdentity?
+  telegramLinks     TelegramLinkToken[]
+  suggestions       TransactionSuggestion[]
+  householdId       String
+  household         Household               @relation(fields: [householdId], references: [id])
+  createdAt         DateTime                @default(now())
 }
 
 model Bank {
@@ -76,6 +88,7 @@ model Bank {
 }
 
 model Account {
+  financialGoals         FinancialGoal[]
   suggestions            TransactionSuggestion[] @relation("SuggestedAccount")
   destinationSuggestions TransactionSuggestion[] @relation("SuggestedDestination")
 
@@ -130,23 +143,27 @@ model CreditCard {
 }
 
 model Invoice {
-  id             String           @id @default(cuid())
-  cardId         String
-  card           CreditCard       @relation(fields: [cardId], references: [id])
-  competence     String
-  openingBalance Int              @default(0)
-  openingBalanceDate DateTime?      @db.Date
-  closingDate    DateTime
-  dueDate        DateTime
-  transactions   Transaction[]    @relation("InvoicePurchases")
-  payments       Transaction[]    @relation("InvoicePayments")
-  paymentRecords InvoicePayment[]
+  id                 String           @id @default(cuid())
+  cardId             String
+  card               CreditCard       @relation(fields: [cardId], references: [id])
+  competence         String
+  openingBalance     Int              @default(0)
+  openingBalanceDate DateTime?        @db.Date
+  closingDate        DateTime
+  dueDate            DateTime
+  transactions       Transaction[]    @relation("InvoicePurchases")
+  payments           Transaction[]    @relation("InvoicePayments")
+  paymentRecords     InvoicePayment[]
 
   @@unique([cardId, competence])
 }
 
 model Category {
-  suggestions TransactionSuggestion[]
+  essentiality  String                  @default("UNCLASSIFIED")
+  expenseNature String                  @default("UNCLASSIFIED")
+  financialRole String                  @default("GENERAL")
+  monthlyGoals  MonthlyGoal[]
+  suggestions   TransactionSuggestion[]
 
   id            String        @id @default(cuid())
   householdId   String
@@ -161,7 +178,8 @@ model Category {
 }
 
 model Subcategory {
-  suggestions TransactionSuggestion[]
+  essentiality String?
+  suggestions  TransactionSuggestion[]
 
   id           String        @id @default(cuid())
   name         String
@@ -448,4 +466,158 @@ model TelegramCallback {
   createdAt    DateTime              @default(now())
 
   @@index([suggestionId])
+}
+
+model FinancialHealthSettings {
+  householdId          String    @id
+  household            Household @relation(fields: [householdId], references: [id])
+  motivations          String[]
+  reserveAnswer        String    @default("UNKNOWN")
+  onboarded            Boolean   @default(false)
+  reserveInitialAmount Int       @default(0)
+  reserveTargetMonths  Int       @default(6)
+  reserveTargetAmount  Int?
+  milestones           Int[]     @default([1, 3, 6, 9, 12])
+  essentialEstimate    Int?
+  essentialSource      String    @default("OBSERVED_DATA")
+  historyStart         DateTime? @db.Date
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model FinancialGoal {
+  id              String             @id @default(cuid())
+  householdId     String
+  household       Household          @relation(fields: [householdId], references: [id])
+  createdByUserId String
+  createdBy       User               @relation("GoalCreator", fields: [createdByUserId], references: [id])
+  memberId        String?
+  member          User?              @relation("GoalMember", fields: [memberId], references: [id])
+  scope           String             @default("HOUSEHOLD")
+  name            String
+  type            String
+  targetAmount    Int
+  initialAmount   Int                @default(0)
+  targetDate      DateTime           @db.Date
+  priority        Int                @default(2)
+  status          String             @default("ACTIVE")
+  icon            String             @default("target")
+  notes           String             @default("")
+  accountId       String?
+  account         Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  contributions   GoalContribution[]
+  monthlyGoals    MonthlyGoal[]
+  planItems       CofluPlanItem[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([householdId, status])
+}
+
+model GoalContribution {
+  id              String         @id @default(cuid())
+  householdId     String
+  household       Household      @relation(fields: [householdId], references: [id])
+  createdByUserId String
+  createdBy       User           @relation(fields: [createdByUserId], references: [id])
+  goalId          String?
+  goal            FinancialGoal? @relation(fields: [goalId], references: [id])
+  // goalId ausente identifica a reserva de emergência compartilhada.
+  amount          Int
+  direction       String         @default("DEPOSIT")
+  date            DateTime       @db.Date
+  notes           String         @default("")
+  requestId       String
+  createdAt       DateTime       @default(now())
+
+  @@unique([householdId, requestId])
+  @@index([householdId, date])
+  @@index([goalId])
+}
+
+model MonthlyGoal {
+  id              String         @id @default(cuid())
+  householdId     String
+  household       Household      @relation(fields: [householdId], references: [id])
+  userId          String?
+  user            User?          @relation(fields: [userId], references: [id])
+  month           String
+  name            String
+  type            String
+  targetAmount    Int
+  manualProgress  Int            @default(0)
+  categoryId      String?
+  category        Category?      @relation(fields: [categoryId], references: [id])
+  financialGoalId String?
+  financialGoal   FinancialGoal? @relation(fields: [financialGoalId], references: [id])
+  status          String         @default("ACTIVE")
+  source          String         @default("USER")
+  sourceKey       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([householdId, month, sourceKey])
+  @@index([householdId, month])
+}
+
+model CofluPlanItem {
+  id              String         @id @default(cuid())
+  householdId     String
+  household       Household      @relation(fields: [householdId], references: [id])
+  title           String
+  notes           String         @default("")
+  stage           String         @default("NOW")
+  position        Int            @default(0)
+  status          String         @default("ACTIVE")
+  financialGoalId String?
+  financialGoal   FinancialGoal? @relation(fields: [financialGoalId], references: [id])
+  reserveMonths   Int?
+  sourceKey       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([householdId, sourceKey])
+  @@index([householdId, position])
+}
+
+model FinancialRecommendationDecision {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  month       String
+  key         String
+  decision    String
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([householdId, month, key])
+}
+
+model MonthlyFinancialReview {
+  id           String    @id @default(cuid())
+  householdId  String
+  household    Household @relation(fields: [householdId], references: [id])
+  month        String
+  version      Int
+  snapshotHash String
+  snapshotData Json
+  status       String
+  generatedAt  DateTime  @default(now())
+
+  @@unique([householdId, month, version])
+}
+
+model FinancialCoachAnalysis {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  month       String
+  fingerprint String
+  status      String
+  output      Json?
+  model       String?
+  totalTokens Int?
+  expiresAt   DateTime
+  generatedAt DateTime  @default(now())
+
+  @@unique([householdId, month, fingerprint])
 }

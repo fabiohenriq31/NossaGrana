@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { createFinanceClient } from "../openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { config, IntegrationError, safeText, hash } from "./config";
@@ -108,11 +108,7 @@ export function identifierHash(e: Extraction) {
 export class OpenAIReceiptAnalyzer implements ReceiptAnalyzer {
   async analyzeText(text: string, context: TextContext): Promise<TextAnalysis> {
     const c = config();
-    const client = new OpenAI({
-      apiKey: c.apiKey,
-      timeout: 60000,
-      maxRetries: 1,
-    });
+    const client = createFinanceClient();
     try {
       const result = await client.responses.parse({
         model: c.model,
@@ -156,11 +152,7 @@ export class OpenAIReceiptAnalyzer implements ReceiptAnalyzer {
     caption: string,
   ): Promise<Analysis> {
     const c = config();
-    const client = new OpenAI({
-      apiKey: c.apiKey,
-      timeout: 60000,
-      maxRetries: 1,
-    });
+    const client = createFinanceClient();
     try {
       const encoded = Buffer.from(bytes).toString("base64");
       const result = await client.responses.parse({
