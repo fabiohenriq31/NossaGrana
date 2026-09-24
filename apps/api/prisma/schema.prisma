@@ -390,10 +390,11 @@ model TransactionSuggestion {
   userId                        String
   user                          User               @relation(fields: [userId], references: [id])
   source                        TransactionSource  @default(TELEGRAM)
-  attachmentId                  String             @unique
-  attachment                    Attachment         @relation(fields: [attachmentId], references: [id])
+  attachmentId                  String?            @unique
+  attachment                    Attachment?        @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
   updateId                      String             @unique
   suggestedType                 TransactionType?
+  suggestedStatus               TransactionStatus? @default(CONFIRMADA)
   suggestedDescription          String?
   suggestedAmount               Int?
   suggestedDate                 DateTime?          @db.Date

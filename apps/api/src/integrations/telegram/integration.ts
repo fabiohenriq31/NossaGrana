@@ -40,6 +40,7 @@ const labels: Record<EditField, string> = {
   amount: "Valor total (R$)",
   date: "Data",
   type: "Tipo",
+  status: "Já pago/recebido ou pendente",
   paymentMethod: "Pagamento",
   account: "Conta de origem",
   destination: "Conta de destino",
@@ -172,6 +173,17 @@ export class TelegramIntegration {
         : []),
       "🏷 " + (category?.name || "Selecione a categoria"),
       "Responsável: " + (s.suggestedOwner || "Selecione"),
+      "Situação: " +
+        (s.suggestedStatus === "CONFIRMADA"
+          ? "Já pago/recebido"
+          : s.suggestedStatus === "PENDENTE"
+            ? "Pendente — ainda não pago/recebido"
+            : "Informe se já foi pago/recebido ou está pendente"),
+      ...(s.reviewReasons.includes("date_assumed_today")
+        ? [
+            "📅 Sem data informada: considerei o dia do envio. Confira antes de salvar.",
+          ]
+        : []),
       ...(s.possibleDuplicate
         ? [
             "⚠️ POSSÍVEL DUPLICATA: confira seus lançamentos antes de confirmar novamente.",
@@ -203,6 +215,10 @@ export class TelegramIntegration {
         await this.button(s, "Escolher conta", "field", "account"),
         await this.button(s, "Escolher cartão", "field", "card"),
       ]);
+    if (!s.suggestedStatus)
+      keyboard.push([
+        await this.button(s, "Informar situação", "field", "status"),
+      ]);
     await this.deps.telegram.send(who.telegramChatId, text, keyboard);
   }
   async choices(senderId: string, s: TransactionSuggestion, field: EditField) {
@@ -229,6 +245,11 @@ export class TelegramIntegration {
         id,
         name: id,
       }));
+    if (field === "status")
+      values = [
+        { id: "CONFIRMADA", name: "Já pago/recebido" },
+        { id: "PENDENTE", name: "Pendente" },
+      ];
     if (field === "paymentMethod")
       values = [
         "PIX",
@@ -309,7 +330,9 @@ export class TelegramIntegration {
       await confirmSuggestion(event.senderId, s.id, token.version);
       await this.deps.telegram.send(
         event.chatId,
-        "✅ Lançamento salvo no Coflu. Seus saldos e relatórios já consideram essa movimentação.",
+        s.suggestedStatus === "PENDENTE"
+          ? "✅ Lançamento pendente salvo no Coflu. O saldo só muda quando você marcar como pago/recebido."
+          : "✅ Lançamento salvo no Coflu. Seus saldos e relatórios já consideram essa movimentação.",
       );
     } else if (token.action === "reject") {
       await rejectSuggestion(event.senderId, s.id, token.version);
@@ -437,7 +460,7 @@ export class TelegramIntegration {
         who
           ? "Olá, " +
               who.user.name +
-              "! 👋\n\nSeu Telegram está conectado ao Coflu.\nEnvie um comprovante, print ou PDF e eu preparo o lançamento para você conferir antes de salvar."
+              "! 👋\n\nSeu Telegram está conectado ao Coflu.\nEnvie um comprovante, print, PDF ou escreva o lançamento. Exemplo: Recebi 600 reais de freelancer hoje no cofrinho do PicPay. Você confere tudo antes de salvar."
           : "Entre no Coflu e abra Configurações → Telegram → Conectar Telegram.",
       );
       return;
@@ -478,10 +501,62 @@ export class TelegramIntegration {
       });
       return this.summary(event.senderId, s.id);
     }
-    await this.deps.telegram.send(
-      event.chatId,
-      "Envie uma imagem ou PDF. Para corrigir uma sugestão, toque em Editar.",
+    return this.text(event);
+  }
+  async text(event: Event) {
+    const who = await identity(event.senderId);
+    if (!who || who.telegramChatId !== event.chatId)
+      throw new IntegrationError(
+        "UNLINKED",
+        "Conecte seu Telegram nas Configurações.",
+      );
+    if (!event.text?.trim() || event.text.trim().startsWith("/")) {
+      await this.deps.telegram.send(
+        event.chatId,
+        "Envie um comprovante ou descreva um lançamento com valor, conta e se já pagou/recebeu. Exemplo: Recebi 600 reais de freelancer hoje no cofrinho do PicPay. Para corrigir uma sugestão, toque em Editar.",
+      );
+      return;
+    }
+    const existing = await prisma.transactionSuggestion.findUnique({
+      where: { updateId: event.id },
+    });
+    if (existing) return this.summary(event.senderId, existing.id);
+    if (!this.deps.analyzer.analyzeText)
+      throw new IntegrationError(
+        "TEXT_UNAVAILABLE",
+        "A análise de texto está indisponível. Envie um comprovante.",
+      );
+    const choices = await householdChoices(who.user.householdId);
+    const analysis = await this.deps.analyzer.analyzeText(event.text, {
+      today:
+        event.referenceDate ||
+        new Date().toLocaleDateString("en-CA", {
+          timeZone: "America/Sao_Paulo",
+        }),
+      senderName: who.user.name,
+      categories: choices.categories.map((c) => c.name),
+    });
+    const current = await identity(event.senderId);
+    if (!current || current.userId !== who.userId)
+      throw new IntegrationError("UNLINKED", "Telegram desconectado.");
+    if (analysis.text.eventCount !== "SINGLE") {
+      await this.deps.telegram.send(
+        event.chatId,
+        analysis.text.eventCount === "MULTIPLE"
+          ? "Identifiquei mais de uma movimentação. Envie uma por mensagem, incluindo valor e conta. Nada foi lançado."
+          : "Descreva um lançamento com valor, conta e se já pagou/recebeu. Exemplo: Recebi 600 reais de freelancer hoje no cofrinho do PicPay. Nada foi lançado.",
+      );
+      return;
+    }
+    const s = await saveSuggestion(
+      who.userId,
+      who.user.householdId,
+      null,
+      event.id,
+      analysis,
+      { analysis, message: event.text },
     );
+    return this.summary(event.senderId, s.id);
   }
   async runOne(targetId?: string) {
     const owner = randomUUID();

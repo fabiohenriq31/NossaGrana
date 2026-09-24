@@ -81,7 +81,7 @@ Desconectar remove identidade, links e callbacks pendentes; lançamentos confirm
 
 ## Conferir, editar e confirmar
 
-- Envie uma foto, print ou PDF de até 10 MB em conversa privada.
+- Envie uma foto, print ou PDF de até 10 MB, ou descreva um lançamento por texto em conversa privada.
 - Receba o resumo com valor, data, tipo, pagamento, categoria, conta/cartão e responsável.
 - Quando faltar informação ou houver duas contas do mesmo banco, escolha explicitamente. O sistema não cria contas. Categorias não reconhecidas recebem Outros; se essa categoria estiver ausente, somente ela é criada no Household.
 - Use Editar para descrição, valor total, data, tipo, pagamento, conta, destino, cartão, categoria/subcategoria, responsável ou parcelas.
@@ -91,7 +91,17 @@ Desconectar remove identidade, links e callbacks pendentes; lançamentos confirm
 - Descartar não cria movimentação. Confiança alta nunca dispensa confirmação.
 - O dashboard atualiza ao retornar à janela e a cada 30 segundos enquanto está visível.
 
-Só BRL é aceito. Moeda ausente/estrangeira exige correção explícita do valor em reais. Documentos com vários eventos devem ser revisados e não são desdobrados automaticamente. Envio de texto livre para IA fica para evolução futura; texto nesta versão é usado para comandos e edições guiadas.
+Só BRL é aceito. Moeda ausente/estrangeira exige correção explícita do valor em reais. Documentos com vários eventos devem ser revisados e não são desdobrados automaticamente.
+
+### Lançamentos por texto
+
+Exemplo: `Recebi 600 reais de freelancer hoje no cofrinho do PicPay`. O bot prepara uma receita de R$ 600,00 e procura a conta ativa pelo nome, banco e responsável citados. Se existir um único cofrinho compatível, ele aparece no resumo; citar apenas PicPay quando existem várias contas exige escolher a conta. A categoria desconhecida usa Outros. Nenhuma nova conta é criada.
+
+`Vou receber 600 amanhã no cofrinho do PicPay` prepara uma receita pendente: salvar a sugestão não aumenta o saldo até a confirmação do recebimento no aplicativo. Quando o texto não esclarece se o dinheiro já chegou à conta, o resumo exige escolher a situação. O botão Editar permite corrigir todos os campos, inclusive situação. Evento realizado sem data usa o dia do envio em America/Sao_Paulo, com aviso; evento futuro sem data deve ser completado.
+
+Mensagens com mais de uma movimentação pedem um envio por lançamento. Conversas e perguntas não criam sugestões. A IA interpreta o texto e pode errar: a confirmação humana continua obrigatória. Reentregas do mesmo update reutilizam a sugestão, e confirmar duas vezes não duplica o lançamento. Texto livre não cria nem exige anexo; a rota de comprovante retorna 404 quando a sugestão não possui arquivo. O texto da fila é apagado ao concluir o processamento; a extração estruturada mantém o histórico da sugestão.
+
+Publicação: aplicar `pnpm db:migrate` antes de iniciar o backend atualizado. A migration `20260924120000_telegram_text` permite sugestões sem anexo e acrescenta a situação financeira, preservando sugestões antigas como confirmadas financeiramente (mas ainda sujeitas à confirmação humana). Não requer novas variáveis de ambiente nem novo webhook.
 
 ## Modelos e endpoints
 

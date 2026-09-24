@@ -14,6 +14,7 @@ import {
   identifierHash,
   type Analysis,
   type Extraction,
+  type TextAnalysis,
 } from "./analyzer";
 import { safeText, IntegrationError } from "./config";
 import { identity } from "./identity";
@@ -39,6 +40,44 @@ export function categoryMatch<T extends Named>(
   return text
     ? uniqueMatch(items, (item) => normalize(item.name) === normalize(text))
     : null;
+}
+// Só as palavras citadas na mensagem podem selecionar uma conta ativa deste núcleo.
+export function matchTextAccount<
+  T extends Named & { owner: string; bank: { name: string } },
+>(accounts: T[], hint: string | null, message: string) {
+  const stopWords = new Set([
+    "a",
+    "o",
+    "as",
+    "os",
+    "de",
+    "do",
+    "da",
+    "dos",
+    "das",
+    "no",
+    "na",
+    "em",
+    "para",
+    "pro",
+    "pra",
+    "e",
+    "meu",
+    "minha",
+    "conta",
+    "banco",
+  ]);
+  const tokens = words(hint || "").filter((w) => !stopWords.has(w));
+  const original = new Set(words(message));
+  if (!tokens.length || tokens.some((w) => !original.has(w))) return null;
+  const exact = accounts.filter(
+    (a) => words(a.name).join(" ") === words(hint || "").join(" "),
+  );
+  if (exact.length) return exact.length === 1 ? exact[0] : null;
+  return uniqueMatch(accounts, (a) => {
+    const label = new Set(words(a.name + " " + a.owner + " " + a.bank.name));
+    return tokens.every((w) => label.has(w));
+  });
 }
 // Correspondência por palavras completas: nunca usar substring ("Ana" ≠ "Mariana").
 const words = (value: string) =>
@@ -219,7 +258,7 @@ export function matchExtraction(
       e.paymentMethod === "CREDITO" ? null : account?.id || null,
     suggestedCreditCardId:
       e.paymentMethod === "CREDITO" ? card?.id || null : null,
-    suggestedDestinationAccountId: null,
+    suggestedDestinationAccountId: null as string | null,
     suggestedCategoryId: category?.id || null,
     suggestedSubcategoryId: subcategory?.id || null,
     suggestedOwner: (card || account)?.owner || null,
@@ -242,7 +281,7 @@ export function toInput(s: TransactionSuggestion) {
     categoryId: s.suggestedCategoryId,
     subcategoryId: s.suggestedSubcategoryId,
     installments: s.installments,
-    status: "CONFIRMADA",
+    status: s.suggestedStatus,
     notes: "",
     tags: [],
   });
@@ -250,9 +289,10 @@ export function toInput(s: TransactionSuggestion) {
 export async function saveSuggestion(
   userId: string,
   householdId: string,
-  attachmentId: string,
+  attachmentId: string | null,
   updateId: string,
   analysis: Analysis,
+  textInput?: { analysis: TextAnalysis; message: string },
 ) {
   const extraction = sanitizeExtraction(analysis.extraction);
   const choices = await householdChoices(householdId);
@@ -264,6 +304,32 @@ export async function saveSuggestion(
     choices.categories.push({ ...fallback, subcategories: [] });
   }
   const matched = matchExtraction(extraction, choices);
+  if (textInput) {
+    const metadata = textInput.analysis.text;
+    if (metadata.eventCount !== "SINGLE")
+      fail("Envie um lançamento por mensagem.");
+    const account = matchTextAccount(
+      choices.accounts,
+      metadata.accountHint,
+      textInput.message,
+    );
+    const destination = matchTextAccount(
+      choices.accounts,
+      metadata.destinationAccountHint,
+      textInput.message,
+    );
+    matched.suggestedAccountId =
+      extraction.paymentMethod === "CREDITO" ? null : account?.id || null;
+    // Não inferir a conta de texto usando apenas o banco extraído pelo modelo.
+    matched.suggestedOwner =
+      extraction.paymentMethod === "CREDITO"
+        ? matched.suggestedOwner
+        : account?.owner || null;
+    matched.suggestedDestinationAccountId =
+      matched.suggestedType === "TRANSFERENCIA"
+        ? destination?.id || null
+        : null;
+  }
   const identifier = identifierHash(analysis.extraction);
   const duplicateById = identifier
     ? await prisma.transactionSuggestion.findFirst({
@@ -304,6 +370,11 @@ export async function saveSuggestion(
   return prisma.transactionSuggestion.create({
     data: {
       ...matched,
+      suggestedStatus: textInput
+        ? textInput.analysis.text.transactionStatus === "UNKNOWN"
+          ? null
+          : textInput.analysis.text.transactionStatus
+        : "CONFIRMADA",
       userId,
       householdId,
       attachmentId,
@@ -403,10 +474,11 @@ export async function confirmSuggestion(
       where: { id: { in: rows.map((r) => r.id) } },
       data: { suggestionId: id },
     });
-    await tx.attachment.update({
-      where: { id: s.attachmentId },
-      data: { transactionId: rows[0].id, expiresAt: null },
-    });
+    if (s.attachmentId)
+      await tx.attachment.update({
+        where: { id: s.attachmentId },
+        data: { transactionId: rows[0].id, expiresAt: null },
+      });
     return { already: false, ids: rows.map((r) => r.id) };
   });
 }
@@ -431,6 +503,7 @@ export const editFields = [
   "amount",
   "date",
   "type",
+  "status",
   "paymentMethod",
   "account",
   "destination",
@@ -450,6 +523,11 @@ export async function editSuggestion(
 ) {
   const { s, who } = await ownedSuggestion(senderId, id);
   const changes: Prisma.TransactionSuggestionUncheckedUpdateManyInput = {};
+  if (field === "status") {
+    if (value !== "CONFIRMADA" && value !== "PENDENTE")
+      fail("Situação inválida.");
+    changes.suggestedStatus = value;
+  }
   if (field === "description") {
     const text = safeText(value.trim(), 160);
     if (!text || text.length < 2)

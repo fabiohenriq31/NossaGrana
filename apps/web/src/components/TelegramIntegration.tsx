@@ -55,8 +55,9 @@ export function TelegramIntegration() {
     <ChartCard title="Telegram">
       <div className="form-grid">
         <p className="full">
-          Envie comprovantes, imagens ou PDFs e confira a sugestão no Telegram.
-          O lançamento só é salvo quando você confirmar.
+          Envie comprovantes, imagens, PDFs ou descreva um lançamento por texto
+          e confira a sugestão no Telegram. O lançamento só é salvo quando você
+          confirmar.
         </p>
         {error && (
           <p role="alert" className="form-error full">

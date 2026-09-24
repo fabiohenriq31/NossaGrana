@@ -13,6 +13,7 @@ const file = z.object({
 });
 const message = z.object({
   message_id: numericId,
+  date: z.number().int().nonnegative().max(253402300799).optional(),
   from: sender.optional(),
   chat: z.object({ id: z.number().int().safe(), type: z.string() }),
   text: z.string().max(4096).optional(),
@@ -46,6 +47,7 @@ export interface Event {
   callbackId?: string;
   token?: string;
   text?: string;
+  referenceDate?: string;
 }
 export function normalizeUpdate(body: unknown): Event | null {
   const parsed = update.safeParse(body);
@@ -92,7 +94,15 @@ export function normalizeUpdate(body: unknown): Event | null {
       mime: m.document?.mime_type || (m.photo ? "image/jpeg" : ""),
       caption: safeText(m.caption || "", 1000) || "",
     };
-  return { ...base, kind: "text", text: safeText(m.text || "", 500) || "" };
+  const receivedAt = m.date ? new Date(m.date * 1000) : new Date();
+  return {
+    ...base,
+    kind: "text",
+    text: safeText(m.text || "", 4096) || "",
+    referenceDate: receivedAt.toLocaleDateString("en-CA", {
+      timeZone: "America/Sao_Paulo",
+    }),
+  };
 }
 export async function identity(senderId: string) {
   return prisma.telegramIdentity.findFirst({

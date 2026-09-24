@@ -68,7 +68,7 @@ export async function telegramRoutes(
         },
         include: { attachment: true },
       });
-      if (!s || s.attachment.processingStatus !== "STORED")
+      if (!s?.attachment || s.attachment.processingStatus !== "STORED")
         fail("Comprovante indisponível.", 404);
       return {
         url: await integration.deps.storage.signedDownloadUrl(
