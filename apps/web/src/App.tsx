@@ -6,7 +6,13 @@ import {
   lazy,
   Suspense,
 } from "react";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import type { Overview } from "../../../packages/shared/src/types";
 import { api, fetchOverview } from "./lib/api";
@@ -23,10 +29,15 @@ import { PlanningPage, CalendarPage } from "./pages/PlanningCalendar";
 import { CategoriesPage, ReportsPage } from "./pages/CategoriesReports";
 import { SettingsPage, LoginPage } from "./pages/SettingsLogin";
 import { PlanPage, FeatureGate } from "./pages/Plan";
+import { HomePage } from "./pages/Home";
 const AdminPage = lazy(() =>
   import("./pages/Admin").then((m) => ({ default: m.AdminPage })),
 );
 const FinancialHealthPage = lazy(() => import("./pages/FinancialHealth"));
+/** App instalado na tela inicial: abre no login (ou no sistema), nunca na Home. */
+const isInstalledApp = () =>
+  window.matchMedia?.("(display-mode: standalone)").matches ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
 export default function App() {
   const [data, setData] = useState<Overview | null>(null),
     [loading, setLoading] = useState(true),
@@ -129,8 +140,17 @@ export default function App() {
               }
             />
           </div>
+        ) : location.pathname === "/" &&
+          !location.search.includes("convite=") &&
+          !isInstalledApp() ? (
+          <HomePage />
         ) : (
-          <LoginPage onLogin={refresh} />
+          <LoginPage
+            key={location.pathname}
+            onLogin={refresh}
+            initialMode={location.pathname === "/cadastro" ? "signup" : "login"}
+            showHomeLink={!isInstalledApp()}
+          />
         )
       ) : (
         <Shell
@@ -153,6 +173,8 @@ export default function App() {
               }
             />
             <Route path="/" element={<BudgetPage {...common} />} />
+            <Route path="/entrar" element={<Navigate to="/" replace />} />
+            <Route path="/cadastro" element={<Navigate to="/" replace />} />
             <Route
               path="/painel"
               element={
