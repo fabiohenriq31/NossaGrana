@@ -134,7 +134,7 @@ export function matchedOwner(receiptName: string, owners: string[]) {
         null
     : null;
 }
-async function defaultCategory(householdId: string) {
+export async function defaultCategory(householdId: string) {
   // Exceção explícita solicitada pelo usuário: somente a categoria reservada Outros.
   const existing = await prisma.category.findFirst({
     where: { householdId, name: { equals: "Outros", mode: "insensitive" } },

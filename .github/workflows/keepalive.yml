@@ -1,0 +1,25 @@
+# Mantém a API do Render e o banco do Supabase acordados.
+# /api/health faz SELECT 1 no banco: um ping a cada ~10 min evita que o Render hiberne
+# (plano gratuito dorme após 15 min) e que o Supabase pause o projeto por inatividade.
+# Para usar outra URL, crie a variável de repositório API_HEALTH_URL em Settings → Variables.
+name: keepalive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping /api/health
+        env:
+          URL: ${{ vars.API_HEALTH_URL || 'https://nossagrana.onrender.com/api/health' }}
+        run: |
+          for i in 1 2 3; do
+            if curl -fsS --max-time 60 "$URL"; then exit 0; fi
+            sleep 20
+          done
+          echo "::warning::API não respondeu. Confira o Render e se o projeto do Supabase está pausado."
+          exit 1

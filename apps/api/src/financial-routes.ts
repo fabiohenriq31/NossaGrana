@@ -2,6 +2,7 @@ import { nextOccurrence, invoiceAmounts } from "./domain";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { atomic } from "./db";
+import { budgetStatus, currentMonth } from "./budget";
 import {
   accountInput,
   cardInput,
@@ -24,6 +25,36 @@ import {
   generateRecurrences,
 } from "./service";
 export async function financialRoutes(app: FastifyInstance) {
+  app.get("/api/budget", async (req) => {
+    const { month } = z
+      .object({
+        month: z
+          .string()
+          .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+          .optional(),
+      })
+      .parse(req.query);
+    return budgetStatus(req.user.householdId, month || currentMonth());
+  });
+  app.put<{ Params: { id: string } }>(
+    "/api/categories/:id/budget",
+    async (req) => {
+      const { monthlyBudget } = z
+        .object({
+          monthlyBudget: z.number().int().min(0).max(1000000000).nullable(),
+        })
+        .strict()
+        .parse(req.body);
+      return atomic(async (tx) => {
+        await owned(tx, "category", req.params.id, req.user.householdId);
+        return tx.category.update({
+          where: { id: req.params.id },
+          data: { monthlyBudget },
+          select: { id: true, monthlyBudget: true },
+        });
+      });
+    },
+  );
   for (const [path, model, schema] of [
     ["accounts", "account", accountInput],
     ["cards", "creditCard", cardInput],

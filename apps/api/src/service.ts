@@ -176,7 +176,7 @@ export async function createTransaction(
   extra: {
     recurringId?: string;
     occurrenceDate?: Date;
-    source?: "AUTOMACAO" | "TELEGRAM";
+    source?: "AUTOMACAO" | "TELEGRAM" | "IMPORTACAO";
   } = {},
   existingId?: string,
 ) {

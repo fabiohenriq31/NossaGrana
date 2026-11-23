@@ -14,9 +14,10 @@
     "db:seed": "tsx apps/api/prisma/seed.ts",
     "db:init-real": "tsx scripts/init-real.ts",
     "db:verify": "node scripts/supabase-preflight.mjs",
+    "db:zerar": "tsx scripts/reset-finance.ts",
     "test:browser": "node scripts/browser-qa.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint apps packages tests scripts/telegram-setup.ts scripts/telegram-live-check.ts scripts/telegram-cleanup.ts",
+    "lint": "eslint apps packages tests scripts/telegram-setup.ts scripts/telegram-live-check.ts scripts/telegram-cleanup.ts scripts/reset-finance.ts",
     "telegram:setup": "tsx scripts/telegram-setup.ts",
     "telegram:cleanup": "tsx scripts/telegram-cleanup.ts"
   },

@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  lazy,
+  Suspense,
+} from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import type { Overview } from "../../../packages/shared/src/types";
@@ -9,6 +16,7 @@ import { LoadingSkeleton, EmptyState } from "./components/common";
 import { Button } from "./components/ui/button";
 import { Editor, type EditorState } from "./components/Editors";
 import { Dashboard } from "./pages/Dashboard";
+import { BudgetPage } from "./pages/Budget";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { AccountsPage, CardsPage, InvoicesPage } from "./pages/AccountsCards";
 import { PlanningPage, CalendarPage } from "./pages/PlanningCalendar";
@@ -130,9 +138,17 @@ export default function App() {
           onNotifications={() => navigate("/planejamento")}
         >
           <Routes>
-            <Route path="/saude-financeira" element={<Suspense fallback={<LoadingSkeleton />}><FinancialHealthPage {...common} onNew={newTransaction} /></Suspense>} />
             <Route
-              path="/"
+              path="/saude-financeira"
+              element={
+                <Suspense fallback={<LoadingSkeleton />}>
+                  <FinancialHealthPage {...common} onNew={newTransaction} />
+                </Suspense>
+              }
+            />
+            <Route path="/" element={<BudgetPage {...common} />} />
+            <Route
+              path="/painel"
               element={
                 <Dashboard
                   {...common}
