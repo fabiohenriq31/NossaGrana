@@ -1,6 +1,7 @@
 import { TelegramIntegration } from "@/components/TelegramIntegration";
 import { HouseholdCard } from "@/components/HouseholdCard";
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { LockKeyhole, LogOut, Sun, Moon } from "lucide-react";
 import { toast } from "sonner";
 import type { Overview } from "../../../../packages/shared/src/types";
@@ -17,10 +18,18 @@ interface PublicConfig {
 }
 const inviteToken = () =>
   new URLSearchParams(window.location.search).get("convite");
-export function LoginPage({ onLogin }: { onLogin: () => Promise<void> }) {
+export function LoginPage({
+  onLogin,
+  initialMode = "login",
+  showHomeLink = false,
+}: {
+  onLogin: () => Promise<void>;
+  initialMode?: "login" | "signup";
+  showHomeLink?: boolean;
+}) {
   const invite = inviteToken();
   const [mode, setMode] = useState<"login" | "signup">(
-      invite ? "signup" : "login",
+      invite ? "signup" : initialMode,
     ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -83,7 +92,17 @@ export function LoginPage({ onLogin }: { onLogin: () => Promise<void> }) {
   return (
     <div className="login-page">
       <div className="login-card panel">
-        <Logo />
+        {showHomeLink ? (
+          <Link
+            to="/"
+            className="login-home-link"
+            aria-label="Voltar ao início"
+          >
+            <Logo />
+          </Link>
+        ) : (
+          <Logo />
+        )}
         <div className="login-heading">
           {mode === "login" ? (
             <>
