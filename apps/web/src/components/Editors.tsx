@@ -23,7 +23,9 @@ export type EditorState =
   | { kind: "category"; item?: Category }
   | { kind: "pay"; item: Invoice }
   | null;
-const people = ["Fábio", "Bianca", "Casa"].map((id) => ({ id, name: id }));
+// Membros do núcleo e "Casa", vindos da API.
+const peopleOf = (data: Overview) =>
+  data.people.map((id) => ({ id, name: id }));
 export const paymentMethods = [
   ["PIX", "PIX"],
   ["DEBITO", "Débito"],
@@ -246,8 +248,8 @@ function TransactionFields({
       <Select
         name="owner"
         label="Responsável"
-        value={item?.owner || "Fábio"}
-        items={people}
+        value={item?.owner || data.user.name}
+        items={peopleOf(data)}
       />
       <Input
         name="description"
@@ -427,8 +429,8 @@ function EntityFields({
         <Select
           name="owner"
           label="Titular"
-          value={i?.owner || "Fábio"}
-          items={people}
+          value={i?.owner || data.user.name}
+          items={peopleOf(data)}
         />
         {state.kind === "account" ? (
           <>

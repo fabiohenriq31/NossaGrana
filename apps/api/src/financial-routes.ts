@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { atomic } from "./db";
 import { budgetStatus, currentMonth } from "./budget";
+import { assertPerson } from "./people";
 import {
   accountInput,
   cardInput,
@@ -70,6 +71,7 @@ export async function financialRoutes(app: FastifyInstance) {
             id = req.params.id;
           return atomic(async (tx) => {
             if (id) await owned(tx, model, id, h);
+            if ("owner" in parsed) await assertPerson(tx, h, parsed.owner);
             if (
               "bankId" in parsed &&
               !(await tx.bank.findUnique({ where: { id: parsed.bankId } }))

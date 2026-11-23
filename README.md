@@ -63,6 +63,19 @@ Usuários, senhas, Telegram conectado, categorias e limites são mantidos. Depoi
 
 O workflow `.github/workflows/keepalive.yml` chama `/api/health` (que faz `SELECT 1`) a cada 10 minutos. Isso evita que o Render gratuito hiberne e que o Supabase pause o projeto por inatividade. Se o projeto já estiver pausado, restaure-o no painel do Supabase (**Restore project**) antes. Migration nova: `20261123120000_category_budget` (aditiva). Rode `pnpm db:migrate` no deploy.
 
+## Cadastro, casas e administração
+
+- **Cadastro aberto**: qualquer pessoa cria conta em `/` → "Criar conta". Cada cadastro cria uma casa (núcleo) com as categorias padrão e os créditos de boas-vindas. Em Configurações → Nossa casa, a pessoa gera um link de convite (7 dias, uso único) para o parceiro entrar na mesma casa.
+- **Responsáveis**: contas, cartões e lançamentos pertencem a um membro da casa (pelo nome) ou a "Casa". Renomear o perfil atualiza os registros.
+- **Administrador**: coloque o e-mail em `ADMIN_EMAILS` (variável do Render, separada por vírgula) e entre de novo; ou rode `pnpm admin:definir voce@email.com`. O menu ganha "Administração".
+- **Painel (`/admin`)**: visão geral (casas, cadastros, uso de IA, receita estimada), clientes (créditos, plano, desativar casa ou pessoa, encerrar sessões), controles sem código (cadastro aberto, convites, modo manutenção, IA ligada, lançamento rápido, aviso no topo, link para assinar) e planos e créditos (preços, créditos por mês, o que cada plano inclui, custo de cada uso, pacotes avulsos). Toda ação fica na auditoria.
+
+### Monetização
+
+- **Créditos** pagam o uso de IA: texto no Telegram (1), comprovante (2), fatura inteira (5) e análise do mês (3). Valores editáveis no painel. Conversa sem lançamento e falha da IA devolvem o crédito. O saldo nunca fica negativo, nem com mensagens simultâneas.
+- **Planos** (padrão): Grátis (créditos de boas-vindas), Essencial (R$ 14,90, 100 créditos/mês, relatórios e planejamento) e Completo (R$ 24,90, 300 créditos/mês, tudo). Funções fora do plano aparecem como demonstração com convite para assinar; a API também bloqueia.
+- **Pagamento**: ainda não há checkout. O botão "Quero este plano" abre o link configurado no painel (WhatsApp, formulário); o admin libera plano ou créditos em Clientes. O plano renova os créditos todo mês a partir da ativação.
+
 ## Regras financeiras implementadas
 
 - Contas: banco com logo, várias contas por banco, titular, tipo, saldo inicial e data de referência, cor, observação e situação. Saldo inicial representa o início da data informada. Após a primeira movimentação, saldo inicial e data ficam preservados. Saldo atual deriva dos registros confirmados.

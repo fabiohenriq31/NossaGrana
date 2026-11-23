@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { check, requireFeature, reserve } from "../billing";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma, atomic } from "../db";
@@ -174,10 +175,22 @@ export async function recordContribution(
     });
   });
 }
+const healthPrefixes = [
+  "/api/financial-health",
+  "/api/emergency-fund",
+  "/api/financial-goals",
+  "/api/monthly-goals",
+  "/api/coflu-plan",
+];
 export async function financialHealthRoutes(
   app: FastifyInstance,
   coach = new FinancialCoachAI(),
 ) {
+  app.addHook("preHandler", async (req) => {
+    const path = req.url.split("?")[0];
+    if (healthPrefixes.some((p) => path.startsWith(p)))
+      await requireFeature(req.user.householdId, "financialHealth");
+  });
   app.get<{ Params: { month: string } }>(
     "/api/financial-health/:month",
     (req) =>
@@ -573,11 +586,17 @@ export async function financialHealthRoutes(
         .parse(req.body || {});
       const month = healthMonth.parse(req.params.month),
         h = req.user.householdId;
-      return coach.analyze(
+      await requireFeature(h, "coach");
+      await check(h, "coach");
+      const result = await coach.analyze(
         h,
         await FinancialHealthService.getHealth(h, month),
         body.refresh,
       );
+      // Só cobra explicação nova; a mesma análise guardada não gasta crédito de novo.
+      if (result.status === "READY" && !result.cached)
+        await reserve(h, "coach").catch(() => {});
+      return result;
     },
   );
 }

@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { assertPerson } from "./people";
 import { atomic, prisma } from "./db";
 import {
   transactionInput,
@@ -43,6 +44,7 @@ export async function validateReferences(
   householdId: string,
   v: TransactionInput,
 ) {
+  await assertPerson(tx, householdId, v.owner);
   for (const id of [v.accountId, v.destinationAccountId])
     if (id) {
       await owned(tx, "account", id, householdId);

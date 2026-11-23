@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import { randomUUID } from "node:crypto";
 import { buildApp } from "../apps/api/src/app";
 import { prisma } from "../apps/api/src/db";
-import { banks } from "../scripts/reference-data";
+import { banks } from "../apps/api/src/reference-data";
 
 test("PostgreSQL: regras financeiras e persistência em núcleo de teste isolado", async (t) => {
   process.env.NODE_ENV = "test";
@@ -70,6 +70,15 @@ test("PostgreSQL: regras financeiras e persistência em núcleo de teste isolado
         householdId: h,
         name: "Fábio",
         email,
+        passwordHash: await bcrypt.hash(password, 4),
+      },
+    });
+    // Responsáveis válidos são os membros do núcleo (mais "Casa").
+    await prisma.user.create({
+      data: {
+        householdId: h,
+        name: "Bianca",
+        email: "bianca-" + email,
         passwordHash: await bcrypt.hash(password, 4),
       },
     });

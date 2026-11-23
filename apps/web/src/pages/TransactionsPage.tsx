@@ -146,7 +146,7 @@ export function TransactionsPage({
               onChange={(e) => setPerson(e.target.value)}
             >
               <option value="">Todos</option>
-              {["Fábio", "Bianca", "Casa"].map((p) => (
+              {data.people.map((p) => (
                 <option key={p}>{p}</option>
               ))}
             </select>

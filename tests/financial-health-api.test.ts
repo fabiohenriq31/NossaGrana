@@ -91,8 +91,9 @@ test("Saúde Financeira: API e persistência isoladas, OpenAI simulada", async (
   try {
     await prisma.household.createMany({
       data: [
-        { id: h, name: "Núcleo sintético QA" },
-        { id: foreign, name: "Núcleo externo QA" },
+        // Saúde financeira e análise por IA fazem parte do plano Completo.
+        { id: h, name: "Núcleo sintético QA", plan: "COMPLETO", credits: 100 },
+        { id: foreign, name: "Núcleo externo QA", plan: "COMPLETO", credits: 100 },
       ],
     });
     for (const [householdId, name] of [

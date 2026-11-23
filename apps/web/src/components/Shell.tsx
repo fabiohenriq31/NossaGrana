@@ -21,7 +21,11 @@ import {
   House,
   HeartPulse,
   PiggyBank,
+  Coins,
+  ShieldCheck,
+  Info,
 } from "lucide-react";
+import type { Overview } from "../../../../packages/shared/src/types";
 import { Dropdown } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { Dialog } from "./ui/dialog";
@@ -39,8 +43,17 @@ export const navItems = [
   ["/calendario", "Calendário", CalendarDays],
   ["/relatorios", "Relatórios", ChartNoAxesCombined],
   ["/categorias", "Categorias", Tags],
+  ["/plano", "Plano e créditos", Coins],
   ["/configuracoes", "Configurações", Settings],
 ] as const;
+const adminItem = ["/admin", "Administração", ShieldCheck] as const;
+const initials = (name: string) =>
+  name
+    .split(/[\s&]+/)
+    .filter((w) => w && w.toLowerCase() !== "e")
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
 export function Logo() {
   return (
     <span className="logo">
@@ -53,18 +66,21 @@ export function AppSidebar({
   name,
   theme,
   setTheme,
+  admin,
 }: {
   name: string;
   theme: string;
   setTheme: (s: string) => void;
+  admin: boolean;
 }) {
+  const items = admin ? [...navItems, adminItem] : navItems;
   return (
     <aside className="sidebar">
       <NavLink to="/" className="brand-link">
         <Logo />
       </NavLink>
       <nav aria-label="Navegação principal">
-        {navItems.map(([path, title, Icon], i) => (
+        {items.map(([path, title, Icon], i) => (
           <div key={path} className="nav-entry">
             {i === MAIN_ITEMS && <span className="nav-section">Avançado</span>}
             <NavLink to={path} end={path === "/"}>
@@ -107,10 +123,12 @@ export function AppHeader({
   onSearch,
   onLogout,
   onNotifications,
+  household,
 }: {
   onSearch: (s: string) => void;
   onLogout: () => void;
   onNotifications: () => void;
+  household: Overview["household"];
 }) {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
@@ -133,6 +151,14 @@ export function AppHeader({
         />
       </form>
       <div className="header-actions">
+        <NavLink
+          to="/plano"
+          className="credit-chip"
+          title="Créditos de IA: plano e histórico"
+        >
+          <Coins size={16} />
+          {household.unlimited ? "∞" : household.credits}
+        </NavLink>
         <Button
           variant="ghost"
           size="icon"
@@ -144,13 +170,14 @@ export function AppHeader({
         <Dropdown
           trigger={
             <Button variant="ghost" className="household">
-              <span className="avatar">FB</span>
-              <strong>Fábio e Bianca</strong>
+              <span className="avatar">{initials(household.name)}</span>
+              <strong>{household.name}</strong>
               <ChevronDown size={15} />
             </Button>
           }
           items={[
             { label: "Meu perfil", action: () => navigate("/configuracoes") },
+            { label: "Plano e créditos", action: () => navigate("/plano") },
             { label: "Sair da conta", action: onLogout },
           ]}
         />
@@ -158,7 +185,8 @@ export function AppHeader({
     </header>
   );
 }
-export function MobileNavigation() {
+export function MobileNavigation({ admin }: { admin: boolean }) {
+  const items = admin ? [...navItems, adminItem] : navItems;
   const [more, setMore] = useState(false);
   return (
     <>
@@ -180,7 +208,7 @@ export function MobileNavigation() {
       </nav>
       <Dialog title="Mais opções" open={more} onOpenChange={setMore}>
         <nav className="more-menu">
-          {navItems.slice(3).map(([path, title, Icon]) => (
+          {items.slice(3).map(([path, title, Icon]) => (
             <NavLink key={path} to={path} onClick={() => setMore(false)}>
               <Icon size={19} />
               {title}
@@ -194,7 +222,7 @@ export function MobileNavigation() {
 }
 export function Shell({
   children,
-  name,
+  data,
   theme,
   setTheme,
   onSearch,
@@ -202,7 +230,7 @@ export function Shell({
   onNotifications,
 }: {
   children: ReactNode;
-  name: string;
+  data: Overview;
   theme: string;
   setTheme: (s: string) => void;
   onSearch: (s: string) => void;
@@ -211,16 +239,28 @@ export function Shell({
 }) {
   return (
     <>
-      <AppSidebar name={name} theme={theme} setTheme={setTheme} />
+      <AppSidebar
+        name={data.user.name}
+        theme={theme}
+        setTheme={setTheme}
+        admin={data.user.role === "ADMIN"}
+      />
       <div className="main-shell">
         <AppHeader
           onSearch={onSearch}
           onLogout={onLogout}
           onNotifications={onNotifications}
+          household={data.household}
         />
+        {data.banner && (
+          <div className={"app-banner " + data.banner.tone} role="status">
+            <Info size={16} />
+            {data.banner.message}
+          </div>
+        )}
         <main>{children}</main>
       </div>
-      <MobileNavigation />
+      <MobileNavigation admin={data.user.role === "ADMIN"} />
     </>
   );
 }

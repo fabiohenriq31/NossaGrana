@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { prisma, atomic } from "../src/db";
 import { createTransaction } from "../src/service";
 import { transactionInput } from "../../../packages/shared/src/validation";
-import { banks, categories } from "../../../scripts/reference-data";
+import { banks, categories } from "../src/reference-data";
 try {
   if (process.env.APP_MODE !== "DEMO" || process.env.NODE_ENV === "production")
     throw new Error(

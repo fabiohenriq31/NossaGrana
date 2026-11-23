@@ -49,6 +49,14 @@ model Household {
   id                      String                            @id @default(cuid())
   name                    String
   mode                    String                            @default("REAL")
+  // Monetização: plano do núcleo e saldo de créditos de IA (ver apps/api/src/billing.ts).
+  plan                    String                            @default("FREE")
+  planExpiresAt           DateTime?
+  planRenewsAt            DateTime?
+  credits                 Int                               @default(0)
+  active                  Boolean                           @default(true)
+  creditEntries           CreditLedger[]
+  invites                 HouseholdInvite[]
   users                   User[]
   accounts                Account[]
   cards                   CreditCard[]
@@ -72,6 +80,9 @@ model User {
   email             String                  @unique
   passwordHash      String
   tokenVersion      Int                     @default(0)
+  role              String                  @default("USER")
+  active            Boolean                 @default(true)
+  lastLoginAt       DateTime?
   telegram          TelegramIdentity?
   telegramLinks     TelegramLinkToken[]
   suggestions       TransactionSuggestion[]
@@ -622,4 +633,52 @@ model FinancialCoachAnalysis {
   generatedAt DateTime  @default(now())
 
   @@unique([householdId, month, fingerprint])
+}
+
+model CreditLedger {
+  id           String    @id @default(cuid())
+  householdId  String
+  household    Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  delta        Int
+  balanceAfter Int
+  reason       String
+  note         String?
+  actorUserId  String?
+  createdAt    DateTime  @default(now())
+
+  @@index([householdId, createdAt])
+  @@index([reason, createdAt])
+}
+
+model HouseholdInvite {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  createdById String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedById    String?
+  createdAt   DateTime  @default(now())
+
+  @@index([householdId])
+}
+
+model AppSetting {
+  key         String   @id
+  value       Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  targetType  String?
+  targetId    String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import bcrypt from "bcrypt";
 import { prisma } from "../apps/api/src/db";
-import { banks, categories } from "./reference-data";
+import { banks, categories } from "../apps/api/src/reference-data";
 if (process.env.APP_MODE === "DEMO")
   throw new Error("APP_MODE deve ser REAL para esta inicialização.");
 if (await prisma.household.count({ where: { mode: "DEMO" } }))
