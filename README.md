@@ -39,6 +39,30 @@ A inicialização é idempotente e não redefine senhas de usuários existentes.
 
 No primeiro acesso, siga os atalhos do Dashboard: cadastrar primeira conta e saldo inicial, cadastrar cartões e registrar receitas/despesas.
 
+## Uso do dia a dia (orçamento)
+
+A tela inicial é **Orçamento**: quanto ainda dá para gastar no mês, no total e por categoria. Cada compra conta no mês em que foi feita (parcelas, uma por mês). O total da fatura aparece à parte. Defina os limites em **Ajustar limites**. Eles valem para todos os meses. O painel antigo continua em **Avançado → Painel completo**.
+
+Lançar é pelo Telegram:
+
+- Texto curto: `mercado 120`, `uber 23,50 ontem`, `farmácia 90 em 3x`, `3x de 50 na loja`. Sem forma de pagamento citada, vai para o cartão do remetente (ou o único cartão da casa). Quando não há dúvida, o bot lança direto e responde quanto resta na categoria e no mês, com os botões **Desfazer** e **Trocar categoria**. Se houver dúvida (receita, pendência, possível duplicata, parcela ambígua, vários cartões), cai na revisão de antes. Para sempre revisar, use `TELEGRAM_QUICK_LAUNCH=false`.
+- Print ou PDF da fatura ou da lista de compras do cartão: o bot lê todas as linhas, ignora pagamentos e estornos, mostra o resumo por categoria e lança tudo com um toque. Compras parceladas (`3/10`) recebem só as parcelas que faltam, a partir da fatura do print. Cada compra só é importada uma vez, então dá para mandar prints sobrepostos ou a fatura do mês seguinte (`4/10`) sem duplicar.
+- `/saldo` mostra o orçamento do mês. `/ajuda` mostra os exemplos.
+
+### Recomeçar do zero
+
+```sh
+pnpm db:zerar                          # mostra o que seria apagado, não muda nada
+pnpm db:zerar --confirmar ZERAR        # apaga lançamentos, faturas, parcelas, recorrências, metas e importações
+pnpm db:zerar --confirmar ZERAR --tudo # também apaga contas e cartões
+```
+
+Usuários, senhas, Telegram conectado, categorias e limites são mantidos. Depois de zerar sem `--tudo`, ajuste o saldo inicial das contas para a data de hoje.
+
+### Manter a API e o banco acordados
+
+O workflow `.github/workflows/keepalive.yml` chama `/api/health` (que faz `SELECT 1`) a cada 10 minutos. Isso evita que o Render gratuito hiberne e que o Supabase pause o projeto por inatividade. Se o projeto já estiver pausado, restaure-o no painel do Supabase (**Restore project**) antes. Migration nova: `20261123120000_category_budget` (aditiva). Rode `pnpm db:migrate` no deploy.
+
 ## Regras financeiras implementadas
 
 - Contas: banco com logo, várias contas por banco, titular, tipo, saldo inicial e data de referência, cor, observação e situação. Saldo inicial representa o início da data informada. Após a primeira movimentação, saldo inicial e data ficam preservados. Saldo atual deriva dos registros confirmados.

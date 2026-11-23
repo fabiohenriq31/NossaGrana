@@ -19,6 +19,26 @@ import {
 } from "./config";
 import { consumeLink, identity, normalizeUpdate, type Event } from "./identity";
 import {
+  tryQuickConfirm,
+  undoQuick,
+  quickCategories,
+  recategorizeQuick,
+} from "./quick";
+import {
+  buildPayload,
+  previewText,
+  previewKeyboard,
+  ownedImport,
+  confirmImport,
+  listText,
+  type ImportPayload,
+} from "./statement";
+const today = () =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+const HELP =
+  "Como usar:\n• Escreva o gasto: mercado 120 · uber 23,50 ontem · farmácia 90 em 3x\n• Mande o print ou PDF da fatura/lista de compras do cartão e eu lanço tudo, inclusive parcelas\n• Mande comprovante de PIX ou boleto\n• /saldo mostra quanto ainda dá para gastar no mês";
+import { budgetStatus, budgetLines, monthLabel } from "../../budget";
+import {
   saveSuggestion,
   ownedSuggestion,
   householdChoices,
@@ -34,6 +54,8 @@ export interface Dependencies {
   telegram: TelegramGateway;
   storage: PrivateAttachmentStorage;
   analyzer: ReceiptAnalyzer;
+  /** Lança direto quando não há dúvida. Ligado por padrão no app; dependências injetadas decidem. */
+  quickLaunch?: boolean;
 }
 const labels: Record<EditField, string> = {
   description: "Descrição",
@@ -60,6 +82,7 @@ export class TelegramIntegration {
       telegram: new TelegramAPI(),
       storage: new SupabaseAttachmentStorage(),
       analyzer: new OpenAIReceiptAnalyzer(),
+      quickLaunch: process.env.TELEGRAM_QUICK_LAUNCH !== "false",
     };
   }
   async accept(body: unknown) {
@@ -302,6 +325,8 @@ export class TelegramIntegration {
   async callback(event: Event) {
     if (event.callbackId)
       await this.deps.telegram.answer(event.callbackId).catch(() => {});
+    if (event.token?.startsWith("q:")) return this.quickCallback(event);
+    if (event.token?.startsWith("imp:")) return this.importCallback(event);
     const token = await prisma.telegramCallback.findUnique({
       where: { token: event.token || "" },
     });
@@ -395,6 +420,14 @@ export class TelegramIntegration {
       where: { householdId_sha256: { householdId: h, sha256 } },
       include: { suggestion: true },
     });
+    if (attachment?.externalImportId) {
+      await this.deps.telegram.send(
+        event.chatId,
+        "📎 Este arquivo já foi recebido antes. Nada foi duplicado.",
+      );
+      await this.showImport(who, attachment.externalImportId).catch(() => {});
+      return;
+    }
     if (attachment?.suggestion) {
       await this.deps.telegram.send(
         event.chatId,
@@ -433,6 +466,49 @@ export class TelegramIntegration {
         },
       });
     }
+    if (this.deps.analyzer.analyzeStatement) {
+      const choices = await householdChoices(h);
+      const { statement } = await this.deps.analyzer.analyzeStatement(
+        bytes,
+        mime,
+        event.caption || "",
+        {
+          today: event.referenceDate || today(),
+          senderName: who.user.name,
+          categories: choices.categories.map((c) => c.name),
+        },
+      );
+      if (statement.kind === "CARD_STATEMENT" && statement.items.length) {
+        const payload = await buildPayload(
+          h,
+          who.userId,
+          statement,
+          event.referenceDate || today(),
+          attachment.id,
+        );
+        const row = await prisma.externalImport.upsert({
+          where: {
+            householdId_source_externalId: {
+              householdId: h,
+              source: "TELEGRAM",
+              externalId: "telegram:" + event.id,
+            },
+          },
+          create: {
+            householdId: h,
+            source: "TELEGRAM",
+            externalId: "telegram:" + event.id,
+            payload: payload as unknown as Prisma.InputJsonValue,
+          },
+          update: {},
+        });
+        await prisma.attachment.update({
+          where: { id: attachment.id },
+          data: { externalImportId: row.id },
+        });
+        return this.showImport(who, row.id);
+      }
+    }
     const analysis = await this.deps.analyzer.analyze(
       bytes,
       mime,
@@ -448,6 +524,7 @@ export class TelegramIntegration {
       event.id,
       analysis,
     );
+    if (await this.quick(event, s)) return;
     await this.summary(event.senderId, s.id);
   }
   async process(event: Event) {
@@ -460,7 +537,9 @@ export class TelegramIntegration {
         who
           ? "Olá, " +
               who.user.name +
-              "! 👋\n\nSeu Telegram está conectado ao Coflu.\nEnvie um comprovante, print, PDF ou escreva o lançamento. Exemplo: Recebi 600 reais de freelancer hoje no cofrinho do PicPay. Você confere tudo antes de salvar."
+              "! 👋\n\nSeu Telegram está conectado ao Coflu.\n\n" +
+              HELP +
+              "\n\nQuando eu tiver certeza, lanço direto e te mostro quanto ainda sobra. Se ficar em dúvida, pergunto antes."
           : "Entre no Coflu e abra Configurações → Telegram → Conectar Telegram.",
       );
       return;
@@ -510,11 +589,32 @@ export class TelegramIntegration {
         "UNLINKED",
         "Conecte seu Telegram nas Configurações.",
       );
-    if (!event.text?.trim() || event.text.trim().startsWith("/")) {
+    const command = event.text?.trim().toLowerCase().split(/[\s@]/)[0];
+    if (command === "/saldo" || command === "/orcamento") {
+      const status = await budgetStatus(who.user.householdId);
+      const lines = budgetLines(
+        status,
+        status.categories
+          .filter((c) => c.budget != null || c.spent > 0)
+          .map((c) => c.id),
+      );
       await this.deps.telegram.send(
         event.chatId,
-        "Envie um comprovante ou descreva um lançamento com valor, conta e se já pagou/recebeu. Exemplo: Recebi 600 reais de freelancer hoje no cofrinho do PicPay. Para corrigir uma sugestão, toque em Editar.",
+        lines.length
+          ? "💰 Orçamento de " +
+              monthLabel(status.month) +
+              "\n\n" +
+              lines.join("\n")
+          : "Nenhum limite definido ainda. Abra o Coflu → Orçamento para definir quanto pode gastar em cada categoria.",
       );
+      return;
+    }
+    if (command === "/ajuda" || command === "/help") {
+      await this.deps.telegram.send(event.chatId, HELP);
+      return;
+    }
+    if (!event.text?.trim() || event.text.trim().startsWith("/")) {
+      await this.deps.telegram.send(event.chatId, HELP);
       return;
     }
     const existing = await prisma.transactionSuggestion.findUnique({
@@ -556,7 +656,123 @@ export class TelegramIntegration {
       analysis,
       { analysis, message: event.text },
     );
+    if (await this.quick(event, s)) return;
     return this.summary(event.senderId, s.id);
+  }
+  /** Lança direto quando não há dúvida e mostra o saldo do envelope. */
+  async quick(event: Event, s: TransactionSuggestion) {
+    if (!this.deps.quickLaunch) return false;
+    const result = await tryQuickConfirm(event.senderId, s);
+    if (!result) return false;
+    await this.deps.telegram.send(event.chatId, result.text, result.keyboard);
+    return true;
+  }
+  async quickCallback(event: Event) {
+    const [, action, id, value] = (event.token || "").split(":");
+    if (action === "u") {
+      const n = await undoQuick(event.senderId, id);
+      await this.deps.telegram.send(
+        event.chatId,
+        n
+          ? "↩️ Desfeito. Nada foi lançado."
+          : "Este lançamento já tinha sido desfeito.",
+      );
+    } else if (action === "c") {
+      await this.deps.telegram.send(
+        event.chatId,
+        "Escolha a categoria:",
+        await quickCategories(event.senderId, id),
+      );
+    } else if (action === "s" && value) {
+      const r = await recategorizeQuick(event.senderId, id, value);
+      await this.deps.telegram.send(event.chatId, r.text, r.keyboard);
+    }
+  }
+  async showImport(
+    who: NonNullable<Awaited<ReturnType<typeof identity>>>,
+    importId: string,
+  ) {
+    const { row, payload } = await ownedImport(
+      who.user.householdId,
+      who.userId,
+      importId,
+    );
+    if (row.status !== "PENDENTE") {
+      await this.deps.telegram.send(
+        who.telegramChatId,
+        row.status === "CONFIRMADA"
+          ? "✅ Esta fatura já foi lançada."
+          : "Esta importação foi descartada.",
+      );
+      return;
+    }
+    const p = await previewText(who.user.householdId, payload, today());
+    await this.deps.telegram.send(
+      who.telegramChatId,
+      p.text,
+      await previewKeyboard(
+        who.user.householdId,
+        row.id,
+        p.ready,
+        p.fresh,
+        !payload.cardId,
+      ),
+    );
+  }
+  async importCallback(event: Event) {
+    const who = await identity(event.senderId);
+    if (!who)
+      throw new IntegrationError(
+        "UNLINKED",
+        "Conecte seu Telegram nas Configurações.",
+      );
+    const [, action, id, value] = (event.token || "").split(":");
+    const h = who.user.householdId;
+    const { row, payload } = await ownedImport(h, who.userId, id);
+    if (action === "ok") {
+      await this.deps.telegram.send(
+        event.chatId,
+        await confirmImport(h, who.userId, row.id, today()),
+      );
+      return;
+    }
+    if (row.status !== "PENDENTE") return this.showImport(who, row.id);
+    if (action === "no") {
+      await prisma.externalImport.updateMany({
+        where: { id: row.id, status: "PENDENTE" },
+        data: { status: "DESCARTADA" },
+      });
+      await this.deps.telegram.send(
+        event.chatId,
+        "Importação descartada. Nada foi lançado.",
+      );
+    } else if (action === "list") {
+      const text = listText(payload.items) || "Nenhuma compra encontrada.";
+      for (let i = 0; i < text.length; i += 3800)
+        await this.deps.telegram.send(event.chatId, text.slice(i, i + 3800));
+    } else if (action === "cards") {
+      await prisma.externalImport.update({
+        where: { id: row.id },
+        data: {
+          payload: {
+            ...payload,
+            cardId: null,
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+      return this.showImport(who, row.id);
+    } else if (action === "card" && value) {
+      const card = await prisma.creditCard.findFirst({
+        where: { id: value, householdId: h, active: true },
+      });
+      if (!card) throw new IntegrationError("CARD", "Cartão indisponível.");
+      const next: ImportPayload = { ...payload, cardId: card.id };
+      await prisma.externalImport.update({
+        where: { id: row.id },
+        data: { payload: next as unknown as Prisma.InputJsonValue },
+      });
+      return this.showImport(who, row.id);
+    }
   }
   async runOne(targetId?: string) {
     const owner = randomUUID();

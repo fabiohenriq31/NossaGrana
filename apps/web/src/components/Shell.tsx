@@ -20,16 +20,20 @@ import {
   Ellipsis,
   House,
   HeartPulse,
+  PiggyBank,
 } from "lucide-react";
 import { Dropdown } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { Dialog } from "./ui/dialog";
+// Os quatro primeiros são o uso do dia a dia; o resto fica em "Avançado".
+export const MAIN_ITEMS = 4;
 export const navItems = [
-  ["/", "Dashboard", LayoutDashboard],
+  ["/", "Orçamento", PiggyBank],
   ["/transacoes", "Transações", ArrowLeftRight],
-  ["/contas", "Contas", Wallet],
-  ["/cartoes", "Cartões", CreditCard],
   ["/faturas", "Faturas", ReceiptText],
+  ["/cartoes", "Cartões", CreditCard],
+  ["/painel", "Painel completo", LayoutDashboard],
+  ["/contas", "Contas", Wallet],
   ["/planejamento", "Planejamento", NotebookTabs],
   ["/saude-financeira", "Saúde Financeira", HeartPulse],
   ["/calendario", "Calendário", CalendarDays],
@@ -60,11 +64,14 @@ export function AppSidebar({
         <Logo />
       </NavLink>
       <nav aria-label="Navegação principal">
-        {navItems.map(([path, title, Icon]) => (
-          <NavLink key={path} to={path} end={path === "/"}>
-            <Icon size={19} />
-            <span>{title}</span>
-          </NavLink>
+        {navItems.map(([path, title, Icon], i) => (
+          <div key={path} className="nav-entry">
+            {i === MAIN_ITEMS && <span className="nav-section">Avançado</span>}
+            <NavLink to={path} end={path === "/"}>
+              <Icon size={19} />
+              <span>{title}</span>
+            </NavLink>
+          </div>
         ))}
       </nav>
       <div className="sidebar-bottom">
@@ -157,9 +164,9 @@ export function MobileNavigation() {
     <>
       <nav className="mobile-nav" aria-label="Navegação mobile">
         {[
-          ["/", "Início", House],
+          ["/", "Orçamento", House],
           ["/transacoes", "Transações", ArrowLeftRight],
-          ["/cartoes", "Cartões", CreditCard],
+          ["/faturas", "Faturas", ReceiptText],
         ].map(([path, label, Icon]) => (
           <NavLink to={path as string} end key={path as string}>
             {typeof Icon !== "string" && <Icon size={21} />}
@@ -173,7 +180,7 @@ export function MobileNavigation() {
       </nav>
       <Dialog title="Mais opções" open={more} onOpenChange={setMore}>
         <nav className="more-menu">
-          {navItems.slice(2).map(([path, title, Icon]) => (
+          {navItems.slice(3).map(([path, title, Icon]) => (
             <NavLink key={path} to={path} onClick={() => setMore(false)}>
               <Icon size={19} />
               {title}

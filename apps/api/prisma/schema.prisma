@@ -162,6 +162,8 @@ model Category {
   essentiality  String                  @default("UNCLASSIFIED")
   expenseNature String                  @default("UNCLASSIFIED")
   financialRole String                  @default("GENERAL")
+  // Limite mensal do envelope em centavos; null = sem limite.
+  monthlyBudget Int?
   monthlyGoals  MonthlyGoal[]
   suggestions   TransactionSuggestion[]
 
