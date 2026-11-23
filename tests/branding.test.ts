@@ -7,11 +7,11 @@ const read = (path:string) => readFileSync(path,"utf8");
 test("marca: login, logo e dashboard apresentam exclusivamente Coflu",()=>{
   assert.match(read("apps/web/src/components/Shell.tsx"),/<span>Coflu<\/span>/);
   assert.match(read("apps/web/src/pages/SettingsLogin.tsx"),/Entrar no Coflu/);
-  assert.match(read("apps/web/src/pages/Dashboard.tsx"),/<h1>Coflu!<\/h1>/);
+  assert.match(read("apps/web/src/components/Shell.tsx"),/function MobileTopbar[\s\S]*<Logo \/>/);
 });
 test("marca: título, descrição, Open Graph e nomes de instalação são Coflu",()=>{
   const html=read("apps/web/index.html");
-  assert.match(html,/<title>Coflu • Nossas finanças<\/title>/);
+  assert.match(html,/<title>Coflu • Finanças do casal<\/title>/);
   for(const attribute of ['name="application-name"','name="apple-mobile-web-app-title"','property="og:title"','name="description"'])
     assert.ok(html.includes(attribute+' content="Coflu'));
   assert.ok(!oldBrand.test(html));

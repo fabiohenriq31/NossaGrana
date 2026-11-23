@@ -6,6 +6,7 @@ import "./styles/app.css";
 import "./styles/pages.css";
 import "./styles/account.css";
 import "./styles/home.css";
+import "./styles/theme.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>

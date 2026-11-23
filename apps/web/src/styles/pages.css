@@ -286,11 +286,11 @@
   border-radius: 50%;
 }
 .calendar-grid > button.today b {
-  border: 1px solid var(--purple);
+  border: 1px solid var(--brand);
 }
 .calendar-grid > button.selected b {
-  background: var(--purple);
-  color: white;
+  background: var(--brand);
+  color: var(--brand-ink);
 }
 .calendar-dots {
   display: flex;
@@ -1019,7 +1019,7 @@
   color: var(--muted);
 }
 .budget-input:focus-within {
-  border-color: var(--purple);
+  border-color: var(--brand);
 }
 .budget-input input {
   flex: 1;
