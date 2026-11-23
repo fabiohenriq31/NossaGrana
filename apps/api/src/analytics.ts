@@ -127,14 +127,16 @@ export function analytics(data: Data, month: string): Analytics {
       ...c,
       percentage: total ? Math.round((c.value / total) * 100) : 0,
     })),
-    personSpending: ["Fábio", "Bianca", "Casa"].map((name) => {
-      const value = amount(expenses.filter((t) => t.owner === name));
-      return {
-        name,
-        value,
-        percentage: total ? Math.round((value / total) * 100) : 0,
-      };
-    }),
+    personSpending: [...new Set(expenses.map((t) => String(t.owner)))].map(
+      (name) => {
+        const value = amount(expenses.filter((t) => t.owner === name));
+        return {
+          name,
+          value,
+          percentage: total ? Math.round((value / total) * 100) : 0,
+        };
+      },
+    ),
     wealth,
   };
 }

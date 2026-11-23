@@ -1,5 +1,6 @@
 import { z } from "zod";
-export const person = z.enum(["Fábio", "Bianca", "Casa"]);
+// Membro do núcleo ou "Casa"; a API confere se a pessoa existe no núcleo (assertPerson).
+export const person = z.string().trim().min(1).max(40);
 export const cents = z.number().int().min(1).max(1000000000);
 export const paymentMethod = z.enum([
   "PIX",

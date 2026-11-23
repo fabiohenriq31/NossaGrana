@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type TransactionSuggestion } from "@prisma/client";
 import { prisma, atomic } from "../../db";
 import type { PrivateAttachmentStorage } from "../../storage";
-import { OpenAIReceiptAnalyzer, type ReceiptAnalyzer } from "./analyzer";
+import {
+  OpenAIReceiptAnalyzer,
+  type ReceiptAnalyzer,
+  type TextAnalysis,
+} from "./analyzer";
 import {
   TelegramAPI,
   SupabaseAttachmentStorage,
@@ -38,6 +42,9 @@ const today = () =>
 const HELP =
   "Como usar:\n• Escreva o gasto: mercado 120 · uber 23,50 ontem · farmácia 90 em 3x\n• Mande o print ou PDF da fatura/lista de compras do cartão e eu lanço tudo, inclusive parcelas\n• Mande comprovante de PIX ou boleto\n• /saldo mostra quanto ainda dá para gastar no mês";
 import { budgetStatus, budgetLines, monthLabel } from "../../budget";
+import { householdPeople } from "../../people";
+import * as credits from "../../billing";
+import { getSettings, type UsageKind } from "../../settings";
 import {
   saveSuggestion,
   ownedSuggestion,
@@ -56,6 +63,32 @@ export interface Dependencies {
   analyzer: ReceiptAnalyzer;
   /** Lança direto quando não há dúvida. Ligado por padrão no app; dependências injetadas decidem. */
   quickLaunch?: boolean;
+  /** Créditos de IA. Sem isto (testes), nada é cobrado. */
+  billing?: Billing;
+}
+export interface Billing {
+  check(householdId: string, kind: UsageKind): Promise<void>;
+  reserve(
+    householdId: string,
+    kind: UsageKind,
+  ): Promise<{ charged: number; balance: number | null }>;
+  refund(householdId: string, amount: number, note: string): Promise<void>;
+}
+const realBilling: Billing = {
+  check: credits.check,
+  reserve: (h, kind) => credits.reserve(h, kind),
+  refund: credits.refund,
+};
+/** Falta de crédito, plano ou IA desligada viram uma resposta direta no Telegram. */
+async function billed<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (e) {
+    const status = (e as { statusCode?: number }).statusCode;
+    if (e instanceof credits.CreditError || status === 503)
+      throw new IntegrationError("CREDITS", (e as Error).message);
+    throw e;
+  }
 }
 const labels: Record<EditField, string> = {
   description: "Descrição",
@@ -83,6 +116,7 @@ export class TelegramIntegration {
       storage: new SupabaseAttachmentStorage(),
       analyzer: new OpenAIReceiptAnalyzer(),
       quickLaunch: process.env.TELEGRAM_QUICK_LAUNCH !== "false",
+      billing: realBilling,
     };
   }
   async accept(body: unknown) {
@@ -284,7 +318,10 @@ export class TelegramIntegration {
         "OUTRO",
       ].map((id) => ({ id, name: id }));
     if (field === "owner")
-      values = ["Fábio", "Bianca", "Casa"].map((id) => ({ id, name: id }));
+      values = (await householdPeople(s.householdId)).map((id) => ({
+        id,
+        name: id,
+      }));
     if (["description", "amount", "date", "installments"].includes(field)) {
       await prisma.telegramIdentity.update({
         where: { id: who.id },
@@ -466,6 +503,9 @@ export class TelegramIntegration {
         },
       });
     }
+    const billing = this.deps.billing;
+    if (billing) await billed(() => billing.check(h, "receipt"));
+    let balance: number | null = null;
     if (this.deps.analyzer.analyzeStatement) {
       const choices = await householdChoices(h);
       const { statement } = await this.deps.analyzer.analyzeStatement(
@@ -479,6 +519,8 @@ export class TelegramIntegration {
         },
       );
       if (statement.kind === "CARD_STATEMENT" && statement.items.length) {
+        if (billing)
+          ({ balance } = await billed(() => billing.reserve(h, "statement")));
         const payload = await buildPayload(
           h,
           who.userId,
@@ -506,14 +548,28 @@ export class TelegramIntegration {
           where: { id: attachment.id },
           data: { externalImportId: row.id },
         });
-        return this.showImport(who, row.id);
+        await this.showImport(who, row.id);
+        return this.lowCredit(event.chatId, balance);
       }
     }
-    const analysis = await this.deps.analyzer.analyze(
-      bytes,
-      mime,
-      event.caption || "",
-    );
+    let charged = 0;
+    if (billing)
+      ({ charged, balance } = await billed(() =>
+        billing.reserve(h, "receipt"),
+      ));
+    let analysis: Awaited<ReturnType<typeof this.deps.analyzer.analyze>>;
+    try {
+      analysis = await this.deps.analyzer.analyze(
+        bytes,
+        mime,
+        event.caption || "",
+      );
+    } catch (e) {
+      await billing
+        ?.refund(h, charged, "Leitura do comprovante falhou")
+        .catch(() => {});
+      throw e;
+    }
     const current = await identity(event.senderId);
     if (!current || current.userId !== who.userId)
       throw new IntegrationError("UNLINKED", "Telegram desconectado.");
@@ -524,8 +580,13 @@ export class TelegramIntegration {
       event.id,
       analysis,
     );
-    if (await this.quick(event, s)) return;
-    await this.summary(event.senderId, s.id);
+    if (!(await this.quick(event, s))) await this.summary(event.senderId, s.id);
+    await this.lowCredit(event.chatId, balance);
+  }
+  async lowCredit(chatId: string, balance: number | null) {
+    if (!this.deps.billing) return;
+    const notice = await credits.lowCreditNotice(balance);
+    if (notice) await this.deps.telegram.send(chatId, notice).catch(() => {});
   }
   async process(event: Event) {
     if (event.kind === "start") {
@@ -627,15 +688,33 @@ export class TelegramIntegration {
         "A análise de texto está indisponível. Envie um comprovante.",
       );
     const choices = await householdChoices(who.user.householdId);
-    const analysis = await this.deps.analyzer.analyzeText(event.text, {
-      today:
-        event.referenceDate ||
-        new Date().toLocaleDateString("en-CA", {
-          timeZone: "America/Sao_Paulo",
-        }),
-      senderName: who.user.name,
-      categories: choices.categories.map((c) => c.name),
-    });
+    const billing = this.deps.billing,
+      h = who.user.householdId;
+    const { charged, balance } = billing
+      ? await billed(() => billing.reserve(h, "text"))
+      : { charged: 0, balance: null };
+    let analysis: TextAnalysis;
+    try {
+      analysis = await this.deps.analyzer.analyzeText(event.text, {
+        today:
+          event.referenceDate ||
+          new Date().toLocaleDateString("en-CA", {
+            timeZone: "America/Sao_Paulo",
+          }),
+        senderName: who.user.name,
+        categories: choices.categories.map((c) => c.name),
+      });
+    } catch (e) {
+      await billing
+        ?.refund(h, charged, "Leitura do texto falhou")
+        .catch(() => {});
+      throw e;
+    }
+    // Conversa ou várias movimentações juntas: nada é lançado, então não gasta crédito.
+    if (analysis.text.eventCount !== "SINGLE")
+      await billing
+        ?.refund(h, charged, "Mensagem sem lançamento")
+        .catch(() => {});
     const current = await identity(event.senderId);
     if (!current || current.userId !== who.userId)
       throw new IntegrationError("UNLINKED", "Telegram desconectado.");
@@ -656,12 +735,13 @@ export class TelegramIntegration {
       analysis,
       { analysis, message: event.text },
     );
-    if (await this.quick(event, s)) return;
-    return this.summary(event.senderId, s.id);
+    if (!(await this.quick(event, s))) await this.summary(event.senderId, s.id);
+    await this.lowCredit(event.chatId, balance);
   }
   /** Lança direto quando não há dúvida e mostra o saldo do envelope. */
   async quick(event: Event, s: TransactionSuggestion) {
-    if (!this.deps.quickLaunch) return false;
+    if (!this.deps.quickLaunch || !(await getSettings()).telegramQuickLaunch)
+      return false;
     const result = await tryQuickConfirm(event.senderId, s);
     if (!result) return false;
     await this.deps.telegram.send(event.chatId, result.text, result.keyboard);

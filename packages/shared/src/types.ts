@@ -1,4 +1,13 @@
-export type Person = "Fábio" | "Bianca" | "Casa";
+/** Nome de um membro do núcleo ou "Casa" (a lista vem em Overview.people). */
+export type Person = string;
+export type FeatureKey =
+  | "telegramText"
+  | "telegramReceipt"
+  | "statementImport"
+  | "financialHealth"
+  | "coach"
+  | "reports"
+  | "planning";
 export type TransactionType = "RECEITA" | "DESPESA" | "TRANSFERENCIA";
 export type Status = "CONFIRMADA" | "PENDENTE" | "CANCELADA";
 export interface Bank {
@@ -124,7 +133,17 @@ export interface Analytics {
 }
 export interface Overview {
   analytics: Analytics;
-  user: { id: string; name: string; email: string };
+  user: { id: string; name: string; email: string; role: "USER" | "ADMIN" };
+  household: {
+    name: string;
+    plan: string;
+    planName: string;
+    credits: number;
+    unlimited: boolean;
+    features: FeatureKey[];
+  };
+  people: Person[];
+  banner: { message: string; tone: "info" | "warning" | "success" } | null;
   accounts: Account[];
   cards: CreditCard[];
   categories: Category[];

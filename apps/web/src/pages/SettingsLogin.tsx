@@ -1,5 +1,6 @@
 import { TelegramIntegration } from "@/components/TelegramIntegration";
-import { useState, type FormEvent } from "react";
+import { HouseholdCard } from "@/components/HouseholdCard";
+import { useEffect, useState, type FormEvent } from "react";
 import { LockKeyhole, LogOut, Sun, Moon } from "lucide-react";
 import { toast } from "sonner";
 import type { Overview } from "../../../../packages/shared/src/types";
@@ -7,22 +8,71 @@ import { Logo } from "@/components/Shell";
 import { Button } from "@/components/ui/button";
 import { ChartCard } from "@/components/common";
 import { api } from "@/lib/api";
+interface PublicConfig {
+  signupEnabled: boolean;
+  invitesEnabled: boolean;
+  maintenance: string | null;
+  signupBonusCredits: number;
+  creditCosts: { text: number };
+}
+const inviteToken = () =>
+  new URLSearchParams(window.location.search).get("convite");
 export function LoginPage({ onLogin }: { onLogin: () => Promise<void> }) {
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  const invite = inviteToken();
+  const [mode, setMode] = useState<"login" | "signup">(
+      invite ? "signup" : "login",
+    ),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [config, setConfig] = useState<PublicConfig | null>(null),
+    [household, setHousehold] = useState<{
+      householdName: string;
+      members: string[];
+    } | null>(null);
+  useEffect(() => {
+    api<PublicConfig>("/public/config")
+      .then(setConfig)
+      .catch(() => {});
+    if (invite)
+      api<{ householdName: string; members: string[] }>(
+        "/auth/invite/" + encodeURIComponent(invite),
+      )
+        .then(setHousehold)
+        .catch((e) => setError((e as Error).message));
+  }, [invite]);
+  const canSignup = invite ? !!household : !!config?.signupEnabled;
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
     setError("");
     const f = new FormData(e.currentTarget);
     try {
-      await api("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          email: f.get("email"),
-          password: f.get("password"),
-        }),
-      });
+      if (mode === "login")
+        await api("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            email: f.get("email"),
+            password: f.get("password"),
+          }),
+        });
+      else {
+        if (f.get("password") !== f.get("confirm"))
+          throw new Error("As senhas não conferem.");
+        await api("/auth/signup", {
+          method: "POST",
+          body: JSON.stringify({
+            name: f.get("name"),
+            email: f.get("email"),
+            password: f.get("password"),
+            ...(invite
+              ? { invite }
+              : f.get("householdName")
+                ? { householdName: f.get("householdName") }
+                : {}),
+          }),
+        });
+        if (invite) window.history.replaceState(null, "", "/");
+      }
       await onLogin();
     } catch (e) {
       setError((e as Error).message);
@@ -35,41 +85,151 @@ export function LoginPage({ onLogin }: { onLogin: () => Promise<void> }) {
       <div className="login-card panel">
         <Logo />
         <div className="login-heading">
-          <h1>Bom ter você por aqui.</h1>
-          <p>Entre para cuidar das nossas finanças.</p>
+          {mode === "login" ? (
+            <>
+              <h1>Bom ter você por aqui.</h1>
+              <p>Entre para cuidar das finanças da casa.</p>
+            </>
+          ) : household ? (
+            <>
+              <h1>Você foi convidado(a).</h1>
+              <p>
+                Crie sua conta para entrar em{" "}
+                <strong>{household.householdName}</strong>
+                {household.members.length
+                  ? " com " + household.members.join(" e ")
+                  : ""}
+                .
+              </p>
+            </>
+          ) : (
+            <>
+              <h1>Organizem a grana juntos.</h1>
+              <p>
+                Crie a conta da casa e depois convide quem divide as contas com
+                você.
+                {config?.signupBonusCredits
+                  ? " Você ganha " +
+                    config.signupBonusCredits +
+                    " créditos para lançar gastos pelo Telegram."
+                  : ""}
+              </p>
+            </>
+          )}
         </div>
+        {!invite && (
+          <div className="auth-tabs" role="tablist">
+            {(["login", "signup"] as const).map((m) => (
+              <button
+                key={m}
+                role="tab"
+                type="button"
+                aria-selected={mode === m}
+                onClick={() => {
+                  setMode(m);
+                  setError("");
+                }}
+              >
+                {m === "login" ? "Entrar" : "Criar conta"}
+              </button>
+            ))}
+          </div>
+        )}
+        {config?.maintenance && (
+          <p role="status" className="form-error">
+            {config.maintenance}
+          </p>
+        )}
         {error && (
           <p role="alert" className="form-error">
             {error}
           </p>
         )}
-        <form onSubmit={submit}>
-          <label>
-            E-mail
-            <input
-              type="email"
-              name="email"
-              autoComplete="username"
-              required
-              placeholder="seu@email.com"
-            />
-          </label>
-          <label>
-            Senha
-            <input
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              required
-              placeholder="Sua senha"
-            />
-          </label>
-          <Button type="submit" disabled={busy}>
-            {busy ? "Entrando…" : "Entrar no Coflu"}
-          </Button>
-        </form>
+        {mode === "signup" && !canSignup ? (
+          <p className="auth-closed">
+            {invite
+              ? "Este convite não está mais disponível. Peça um novo link para quem convidou você."
+              : config
+                ? "Os cadastros estão fechados no momento. Volte em breve."
+                : "Carregando…"}
+          </p>
+        ) : (
+          <form onSubmit={submit} key={mode}>
+            {mode === "signup" && (
+              <label>
+                Seu nome
+                <input
+                  name="name"
+                  autoComplete="given-name"
+                  required
+                  minLength={2}
+                  maxLength={40}
+                  placeholder="Como vão te chamar no app"
+                />
+              </label>
+            )}
+            <label>
+              E-mail
+              <input
+                type="email"
+                name="email"
+                autoComplete={mode === "login" ? "username" : "email"}
+                required
+                placeholder="seu@email.com"
+              />
+            </label>
+            <label>
+              Senha
+              <input
+                type="password"
+                name="password"
+                autoComplete={
+                  mode === "login" ? "current-password" : "new-password"
+                }
+                required
+                minLength={mode === "signup" ? 10 : undefined}
+                placeholder={
+                  mode === "signup" ? "Mínimo de 10 caracteres" : "Sua senha"
+                }
+              />
+            </label>
+            {mode === "signup" && (
+              <>
+                <label>
+                  Confirme a senha
+                  <input
+                    type="password"
+                    name="confirm"
+                    autoComplete="new-password"
+                    required
+                    minLength={10}
+                  />
+                </label>
+                {!invite && (
+                  <label>
+                    Nome da casa (opcional)
+                    <input
+                      name="householdName"
+                      maxLength={60}
+                      placeholder="Ex.: Ana & Leo"
+                    />
+                  </label>
+                )}
+              </>
+            )}
+            <Button type="submit" disabled={busy}>
+              {busy
+                ? mode === "login"
+                  ? "Entrando…"
+                  : "Criando conta…"
+                : mode === "login"
+                  ? "Entrar no Coflu"
+                  : "Criar conta"}
+            </Button>
+          </form>
+        )}
         <p className="login-private">
-          <LockKeyhole size={14} /> Um espaço privado para Fábio e Bianca.
+          <LockKeyhole size={14} /> Os dados de cada casa são privados.
         </p>
       </div>
       <p className="login-slogan">
@@ -187,16 +347,7 @@ export function SettingsPage({
             </div>
           </ChartCard>
           <TelegramIntegration />
-          <ChartCard title="Nossa família">
-            <div className="family-member">
-              <span className="avatar">F</span>Fábio
-              <small>Acesso compartilhado</small>
-            </div>
-            <div className="family-member">
-              <span className="avatar">B</span>Bianca
-              <small>Acesso compartilhado</small>
-            </div>
-          </ChartCard>
+          <HouseholdCard refresh={refresh} />
           <Button variant="outline" onClick={onLogout}>
             <LogOut size={17} />
             Sair da conta

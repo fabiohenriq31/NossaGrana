@@ -22,6 +22,10 @@ import { AccountsPage, CardsPage, InvoicesPage } from "./pages/AccountsCards";
 import { PlanningPage, CalendarPage } from "./pages/PlanningCalendar";
 import { CategoriesPage, ReportsPage } from "./pages/CategoriesReports";
 import { SettingsPage, LoginPage } from "./pages/SettingsLogin";
+import { PlanPage, FeatureGate } from "./pages/Plan";
+const AdminPage = lazy(() =>
+  import("./pages/Admin").then((m) => ({ default: m.AdminPage })),
+);
 const FinancialHealthPage = lazy(() => import("./pages/FinancialHealth"));
 export default function App() {
   const [data, setData] = useState<Overview | null>(null),
@@ -130,7 +134,7 @@ export default function App() {
         )
       ) : (
         <Shell
-          name={data.user.name}
+          data={data}
           theme={theme}
           setTheme={setTheme}
           onSearch={setSearch}
@@ -141,9 +145,11 @@ export default function App() {
             <Route
               path="/saude-financeira"
               element={
-                <Suspense fallback={<LoadingSkeleton />}>
-                  <FinancialHealthPage {...common} onNew={newTransaction} />
-                </Suspense>
+                <FeatureGate data={data} feature="financialHealth">
+                  <Suspense fallback={<LoadingSkeleton />}>
+                    <FinancialHealthPage {...common} onNew={newTransaction} />
+                  </Suspense>
+                </FeatureGate>
               }
             />
             <Route path="/" element={<BudgetPage {...common} />} />
@@ -197,20 +203,44 @@ export default function App() {
             <Route
               path="/planejamento"
               element={
-                <PlanningPage
-                  {...common}
-                  onNew={newTransaction}
-                  onEdit={edit}
-                  onPay={pay}
-                  refresh={refresh}
-                />
+                <FeatureGate data={data} feature="planning">
+                  <PlanningPage
+                    {...common}
+                    onNew={newTransaction}
+                    onEdit={edit}
+                    onPay={pay}
+                    refresh={refresh}
+                  />
+                </FeatureGate>
               }
             />
             <Route
               path="/calendario"
-              element={<CalendarPage {...common} onEdit={edit} onPay={pay} />}
+              element={
+                <FeatureGate data={data} feature="planning">
+                  <CalendarPage {...common} onEdit={edit} onPay={pay} />
+                </FeatureGate>
+              }
             />
-            <Route path="/relatorios" element={<ReportsPage {...common} />} />
+            <Route
+              path="/relatorios"
+              element={
+                <FeatureGate data={data} feature="reports">
+                  <ReportsPage {...common} />
+                </FeatureGate>
+              }
+            />
+            <Route path="/plano" element={<PlanPage refresh={refresh} />} />
+            {data.user.role === "ADMIN" && (
+              <Route
+                path="/admin"
+                element={
+                  <Suspense fallback={<LoadingSkeleton />}>
+                    <AdminPage />
+                  </Suspense>
+                }
+              />
+            )}
             <Route
               path="/categorias"
               element={

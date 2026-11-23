@@ -98,6 +98,15 @@ test("Coflu: saldos iniciais, API, isolamento e aceitação financeira", async (
         passwordHash: await bcrypt.hash(password, 4),
       },
     });
+    // Responsáveis válidos são os membros do núcleo (mais "Casa").
+    await prisma.user.create({
+      data: {
+        householdId: h,
+        name: "Bianca",
+        email: "bianca-" + email,
+        passwordHash: await bcrypt.hash(password, 4),
+      },
+    });
     const login = await app.inject({
       method: "POST",
       url: "/api/auth/login",

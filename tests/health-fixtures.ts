@@ -93,7 +93,12 @@ export function fixture(): SnapshotInputs {
     }),
   ]);
   const data = {
-    user: { id: "member-a", name: "Pessoa Um", email: "private@example.test" },
+    user: {
+      id: "member-a",
+      name: "Pessoa Um",
+      email: "private@example.test",
+      role: "USER" as const,
+    },
     accounts: [],
     cards: [],
     categories: categories.map((c) => ({
@@ -119,6 +124,16 @@ export function fixture(): SnapshotInputs {
     ],
     recurrences: [],
     banks: [],
+    household: {
+      name: "Núcleo de teste",
+      plan: "COMPLETO",
+      planName: "Completo",
+      credits: 0,
+      unlimited: false,
+      features: [],
+    },
+    people: ["Pessoa Um", "Pessoa Dois", "Casa"],
+    banner: null,
   };
   return {
     data: {
