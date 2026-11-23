@@ -185,6 +185,45 @@ export function AppHeader({
     </header>
   );
 }
+/** Barra de topo do celular: marca, créditos e menu da conta. */
+export function MobileTopbar({
+  household,
+  onLogout,
+}: {
+  household: Overview["household"];
+  onLogout: () => void;
+}) {
+  const navigate = useNavigate();
+  return (
+    <header className="mobile-topbar">
+      <NavLink to="/" aria-label="Coflu, orçamento">
+        <Logo />
+      </NavLink>
+      <div className="mobile-topbar-actions">
+        <NavLink
+          to="/plano"
+          className="credit-chip"
+          aria-label="Créditos de IA"
+        >
+          <Coins size={16} />
+          {household.unlimited ? "∞" : household.credits}
+        </NavLink>
+        <Dropdown
+          trigger={
+            <button className="mobile-avatar" aria-label="Menu da conta">
+              <span className="avatar">{initials(household.name)}</span>
+            </button>
+          }
+          items={[
+            { label: "Meu perfil", action: () => navigate("/configuracoes") },
+            { label: "Plano e créditos", action: () => navigate("/plano") },
+            { label: "Sair da conta", action: onLogout },
+          ]}
+        />
+      </div>
+    </header>
+  );
+}
 export function MobileNavigation({ admin }: { admin: boolean }) {
   const items = admin ? [...navItems, adminItem] : navItems;
   const [more, setMore] = useState(false);
@@ -246,6 +285,7 @@ export function Shell({
         admin={data.user.role === "ADMIN"}
       />
       <div className="main-shell">
+        <MobileTopbar household={data.household} onLogout={onLogout} />
         <AppHeader
           onSearch={onSearch}
           onLogout={onLogout}

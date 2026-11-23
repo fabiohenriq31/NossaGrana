@@ -1,8 +1,22 @@
 import { TelegramIntegration } from "@/components/TelegramIntegration";
 import { HouseholdCard } from "@/components/HouseholdCard";
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type InputHTMLAttributes,
+} from "react";
 import { Link } from "react-router-dom";
-import { LockKeyhole, LogOut, Sun, Moon } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  LogOut,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Overview } from "../../../../packages/shared/src/types";
 import { Logo } from "@/components/Shell";
@@ -90,171 +104,220 @@ export function LoginPage({
     }
   }
   return (
-    <div className="login-page">
-      <div className="login-card panel">
-        {showHomeLink ? (
-          <Link
-            to="/"
-            className="login-home-link"
-            aria-label="Voltar ao início"
-          >
-            <Logo />
-          </Link>
-        ) : (
-          <Logo />
-        )}
-        <div className="login-heading">
-          {mode === "login" ? (
-            <>
-              <h1>Bom ter você por aqui.</h1>
-              <p>Entre para cuidar das finanças da casa.</p>
-            </>
-          ) : household ? (
-            <>
-              <h1>Você foi convidado(a).</h1>
-              <p>
-                Crie sua conta para entrar em{" "}
-                <strong>{household.householdName}</strong>
-                {household.members.length
-                  ? " com " + household.members.join(" e ")
-                  : ""}
-                .
-              </p>
-            </>
+    <div className="auth">
+      <aside className="auth-aside" aria-hidden>
+        <Logo />
+        <div className="auth-aside-copy">
+          <h2>
+            O dinheiro da casa,
+            <br />
+            <em>organizado a dois.</em>
+          </h2>
+          <ul>
+            <li>
+              <Check size={18} /> Orçamento por categoria, com o quanto ainda
+              cabe no mês
+            </li>
+            <li>
+              <Check size={18} /> Cartões, parcelas e faturas sem susto
+            </li>
+            <li>
+              <Check size={18} /> Lance um gasto mandando uma mensagem no
+              Telegram
+            </li>
+          </ul>
+        </div>
+        <div className="auth-aside-chat">
+          <p className="me">mercado 120 no débito</p>
+          <p className="bot">Lançado. Ainda cabem R$ 336 em Mercado.</p>
+        </div>
+      </aside>
+      <div className="auth-main">
+        <div className="auth-topbar">
+          {showHomeLink ? (
+            <Link to="/" className="auth-back">
+              <ArrowLeft size={17} /> Início
+            </Link>
           ) : (
-            <>
-              <h1>Organizem a grana juntos.</h1>
-              <p>
-                Crie a conta da casa e depois convide quem divide as contas com
-                você.
-                {config?.signupBonusCredits
-                  ? " Você ganha " +
-                    config.signupBonusCredits +
-                    " créditos para lançar gastos pelo Telegram."
-                  : ""}
-              </p>
-            </>
+            <span />
+          )}
+          {showHomeLink ? (
+            <Link to="/" className="auth-logo" aria-label="Coflu, início">
+              <Logo />
+            </Link>
+          ) : (
+            <span className="auth-logo">
+              <Logo />
+            </span>
           )}
         </div>
-        {!invite && (
-          <div className="auth-tabs" role="tablist">
-            {(["login", "signup"] as const).map((m) => (
-              <button
-                key={m}
-                role="tab"
-                type="button"
-                aria-selected={mode === m}
-                onClick={() => {
-                  setMode(m);
-                  setError("");
-                }}
-              >
-                {m === "login" ? "Entrar" : "Criar conta"}
-              </button>
-            ))}
-          </div>
-        )}
-        {config?.maintenance && (
-          <p role="status" className="form-error">
-            {config.maintenance}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="form-error">
-            {error}
-          </p>
-        )}
-        {mode === "signup" && !canSignup ? (
-          <p className="auth-closed">
-            {invite
-              ? "Este convite não está mais disponível. Peça um novo link para quem convidou você."
-              : config
-                ? "Os cadastros estão fechados no momento. Volte em breve."
-                : "Carregando…"}
-          </p>
-        ) : (
-          <form onSubmit={submit} key={mode}>
-            {mode === "signup" && (
-              <label>
-                Seu nome
-                <input
-                  name="name"
-                  autoComplete="given-name"
-                  required
-                  minLength={2}
-                  maxLength={40}
-                  placeholder="Como vão te chamar no app"
-                />
-              </label>
-            )}
-            <label>
-              E-mail
-              <input
-                type="email"
-                name="email"
-                autoComplete={mode === "login" ? "username" : "email"}
-                required
-                placeholder="seu@email.com"
-              />
-            </label>
-            <label>
-              Senha
-              <input
-                type="password"
-                name="password"
-                autoComplete={
-                  mode === "login" ? "current-password" : "new-password"
-                }
-                required
-                minLength={mode === "signup" ? 10 : undefined}
-                placeholder={
-                  mode === "signup" ? "Mínimo de 10 caracteres" : "Sua senha"
-                }
-              />
-            </label>
-            {mode === "signup" && (
+        <div className="auth-card">
+          <div className="login-heading">
+            {mode === "login" ? (
               <>
-                <label>
-                  Confirme a senha
-                  <input
-                    type="password"
-                    name="confirm"
-                    autoComplete="new-password"
-                    required
-                    minLength={10}
-                  />
-                </label>
-                {!invite && (
-                  <label>
-                    Nome da casa (opcional)
-                    <input
-                      name="householdName"
-                      maxLength={60}
-                      placeholder="Ex.: Ana & Leo"
-                    />
-                  </label>
-                )}
+                <h1>Bom ter você por aqui.</h1>
+                <p>Entre para cuidar das finanças da casa.</p>
+              </>
+            ) : household ? (
+              <>
+                <h1>Você foi convidado(a).</h1>
+                <p>
+                  Crie sua conta para entrar em{" "}
+                  <strong>{household.householdName}</strong>
+                  {household.members.length
+                    ? " com " + household.members.join(" e ")
+                    : ""}
+                  .
+                </p>
+              </>
+            ) : (
+              <>
+                <h1>Organizem a grana juntos.</h1>
+                <p>
+                  Crie a conta da casa e depois convide quem divide as contas
+                  com você.
+                  {config?.signupBonusCredits
+                    ? " Você ganha " +
+                      config.signupBonusCredits +
+                      " créditos para lançar gastos pelo Telegram."
+                    : ""}
+                </p>
               </>
             )}
-            <Button type="submit" disabled={busy}>
-              {busy
-                ? mode === "login"
-                  ? "Entrando…"
-                  : "Criando conta…"
-                : mode === "login"
-                  ? "Entrar no Coflu"
-                  : "Criar conta"}
-            </Button>
-          </form>
-        )}
-        <p className="login-private">
-          <LockKeyhole size={14} /> Os dados de cada casa são privados.
-        </p>
+          </div>
+          {!invite && (
+            <div className="auth-tabs" role="tablist">
+              {(["login", "signup"] as const).map((m) => (
+                <button
+                  key={m}
+                  role="tab"
+                  type="button"
+                  aria-selected={mode === m}
+                  onClick={() => {
+                    setMode(m);
+                    setError("");
+                  }}
+                >
+                  {m === "login" ? "Entrar" : "Criar conta"}
+                </button>
+              ))}
+            </div>
+          )}
+          {config?.maintenance && (
+            <p role="status" className="form-error">
+              {config.maintenance}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="form-error">
+              {error}
+            </p>
+          )}
+          {mode === "signup" && !canSignup ? (
+            <p className="auth-closed">
+              {invite
+                ? "Este convite não está mais disponível. Peça um novo link para quem convidou você."
+                : config
+                  ? "Os cadastros estão fechados no momento. Volte em breve."
+                  : "Carregando…"}
+            </p>
+          ) : (
+            <form onSubmit={submit} key={mode}>
+              {mode === "signup" && (
+                <label>
+                  Seu nome
+                  <input
+                    name="name"
+                    autoComplete="given-name"
+                    required
+                    minLength={2}
+                    maxLength={40}
+                    placeholder="Como vão te chamar no app"
+                  />
+                </label>
+              )}
+              <label>
+                E-mail
+                <input
+                  type="email"
+                  name="email"
+                  autoComplete={mode === "login" ? "username" : "email"}
+                  required
+                  placeholder="seu@email.com"
+                />
+              </label>
+              <label>
+                Senha
+                <PasswordInput
+                  name="password"
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  required
+                  minLength={mode === "signup" ? 10 : undefined}
+                  placeholder={
+                    mode === "signup" ? "Mínimo de 10 caracteres" : "Sua senha"
+                  }
+                />
+              </label>
+              {mode === "signup" && (
+                <>
+                  <label>
+                    Confirme a senha
+                    <PasswordInput
+                      name="confirm"
+                      autoComplete="new-password"
+                      required
+                      minLength={10}
+                    />
+                  </label>
+                  {!invite && (
+                    <label>
+                      Nome da casa (opcional)
+                      <input
+                        name="householdName"
+                        maxLength={60}
+                        placeholder="Ex.: Ana & Leo"
+                      />
+                    </label>
+                  )}
+                </>
+              )}
+              <Button type="submit" disabled={busy}>
+                {busy
+                  ? mode === "login"
+                    ? "Entrando…"
+                    : "Criando conta…"
+                  : mode === "login"
+                    ? "Entrar no Coflu"
+                    : "Criar conta"}
+              </Button>
+            </form>
+          )}
+          <p className="login-private">
+            <LockKeyhole size={14} /> Os dados de cada casa são privados.
+          </p>
+        </div>
       </div>
-      <p className="login-slogan">
-        MAIS CONTROLE. MAIS TRANQUILIDADE. JUNTOS. ♥
-      </p>
     </div>
+  );
+}
+
+/** Campo de senha com botão para mostrar ou esconder o que foi digitado. */
+function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="password-field">
+      <input {...props} type={visible ? "text" : "password"} />
+      <button
+        type="button"
+        aria-label={visible ? "Esconder senha" : "Mostrar senha"}
+        aria-pressed={visible}
+        onClick={() => setVisible((v) => !v)}
+      >
+        {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </span>
   );
 }
 export function SettingsPage({
@@ -323,16 +386,14 @@ export function SettingsPage({
               </label>
               <label className="full">
                 Senha atual
-                <input
-                  type="password"
+                <PasswordInput
                   name="currentPassword"
                   autoComplete="current-password"
                 />
               </label>
               <label className="full">
                 Nova senha (opcional)
-                <input
-                  type="password"
+                <PasswordInput
                   name="password"
                   minLength={10}
                   autoComplete="new-password"
