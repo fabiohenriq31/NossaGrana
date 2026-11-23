@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { api } from "@/lib/api";
 import { money, today } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { OnboardingWizard } from "./OnboardingWizard";
 import type {
   HealthResponse,
   GoalFields,
@@ -163,9 +164,10 @@ export function HealthSettingsForm({
 }) {
   const s = health.settings;
   const [source, setSource] = useState(s.essentialSource);
+  if (onboarding) return <OnboardingWizard health={health} done={done} />;
   return (
     <FormFrame
-      label={onboarding ? "Começar meu plano" : "Salvar preferências"}
+      label="Salvar preferências"
       submit={async (f) => {
         await api("/financial-health/settings", {
           method: "PATCH",
@@ -188,7 +190,7 @@ export function HealthSettingsForm({
             historyStart: str(f, "historyStart") || null,
           }),
         });
-        done(f.get("createGoal") === "on");
+        done(false);
       }}
     >
       <div className="full">
@@ -293,12 +295,6 @@ export function HealthSettingsForm({
           essa data, inclusive meses sem atividade.
         </small>
       </HealthField>
-      {onboarding && (
-        <label className="health-check full">
-          <input type="checkbox" name="createGoal" />
-          Tenho algo que gostaria de conquistar e quero criar um objetivo.
-        </label>
-      )}
     </FormFrame>
   );
 }
