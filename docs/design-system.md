@@ -38,3 +38,11 @@ Mobile até 700 px:
 Login e cadastro: painel da marca à esquerda e formulário à direita. Abaixo de 860 px, só o formulário aparece, com link de volta à Home. O app instalado não mostra esse link. Os campos de senha têm botão para mostrar ou esconder o que foi digitado.
 
 Valores financeiros são centavos inteiros.
+
+Cadastros guiados (como o primeiro acesso à Saúde Financeira):
+
+- uma pergunta por vez, com barra de progresso e botão Voltar;
+- respostas de escolha única avançam ao tocar;
+- escolha múltipla e valores usam Continuar (Enter também avança);
+- o total de passos só pode diminuir durante o fluxo, nunca aumentar;
+- o formulário completo continua disponível para edição depois.
