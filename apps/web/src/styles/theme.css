@@ -1444,3 +1444,18 @@ progress::-webkit-progress-value {
     animation: none;
   }
 }
+
+/* Contas agrupadas: contas bancárias e cartões de benefício. */
+.accounts-group + .accounts-group {
+  margin-top: 28px;
+}
+.accounts-group-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted, inherit);
+}

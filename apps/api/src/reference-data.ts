@@ -14,6 +14,15 @@ export const banks = [
   ["xp", "XP"],
   ["sicoob", "Sicoob"],
   ["sicredi", "Sicredi"],
+  ["alelo", "Alelo"],
+  ["pluxee", "Pluxee (Sodexo)"],
+  ["ticket", "Ticket"],
+  ["vr", "VR Benefícios"],
+  ["flash", "Flash"],
+  ["caju", "Caju"],
+  ["swile", "Swile"],
+  ["ifood-beneficios", "iFood Benefícios"],
+  ["ben", "Ben Visa Vale"],
   ["outro", "Outro"],
 ].map(([id, name]) => ({ id, name }));
 export const categories = [

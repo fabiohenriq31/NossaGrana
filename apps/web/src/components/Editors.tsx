@@ -16,6 +16,26 @@ import { Button } from "./ui/button";
 import { BankLogo } from "./common";
 import { api } from "@/lib/api";
 import { today, money } from "@/lib/utils";
+import {
+  benefitAccountTypes,
+  isBenefitAccount,
+} from "../../../../packages/shared/src/validation";
+
+/** Próxima data (hoje ou depois) com o dia do mês informado, limitado ao fim do mês. */
+function nextMonthDay(dayOfMonth: number) {
+  const now = today();
+  let [y, m] = now.split("-").map(Number) as [number, number];
+  for (;;) {
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const d = `${y}-${String(m).padStart(2, "0")}-${String(Math.min(dayOfMonth, last)).padStart(2, "0")}`;
+    if (d >= now) return d;
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+}
 export type EditorState =
   | { kind: "transaction"; item?: Transaction }
   | { kind: "account"; item?: Account }
@@ -411,6 +431,71 @@ function TransactionFields({
     </>
   );
 }
+const bankAccountTypes = [
+  "Corrente",
+  "Poupança",
+  "Carteira",
+  "Dinheiro",
+  "Digital",
+  "Investimento",
+];
+/** Tipo da conta; em cartão de benefício novo, permite agendar a recarga mensal. */
+function AccountTypeFields({
+  value,
+  creating,
+}: {
+  value: string;
+  creating: boolean;
+}) {
+  const [type, setType] = useState(value);
+  const benefit = isBenefitAccount(type);
+  return (
+    <>
+      <Field label="Tipo da conta">
+        <select
+          name="type"
+          aria-label="Tipo da conta"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          required
+        >
+          <optgroup label="Contas">
+            {bankAccountTypes.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Cartões de benefício">
+            {benefitAccountTypes.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </optgroup>
+        </select>
+      </Field>
+      {benefit && creating && (
+        <>
+          <Input
+            name="rechargeAmount"
+            label="Recarga mensal (R$)"
+            required={false}
+          />
+          <Input
+            name="rechargeDay"
+            label="Dia da recarga"
+            type="number"
+            min={1}
+            max={31}
+            required={false}
+          />
+          <p className="muted full">
+            Com recarga e dia preenchidos, o Coflu agenda uma receita mensal
+            pendente neste cartão. Para pagar com ele, lance a despesa
+            escolhendo este cartão como conta.
+          </p>
+        </>
+      )}
+    </>
+  );
+}
 function EntityFields({
   state,
   data,
@@ -434,18 +519,9 @@ function EntityFields({
         />
         {state.kind === "account" ? (
           <>
-            <Select
-              name="type"
-              label="Tipo da conta"
+            <AccountTypeFields
               value={state.item?.type || "Corrente"}
-              items={[
-                "Corrente",
-                "Poupança",
-                "Carteira",
-                "Dinheiro",
-                "Digital",
-                "Investimento",
-              ].map((id) => ({ id, name: id }))}
+              creating={!state.item}
             />
             <Input
               name="initialBalance"
@@ -715,6 +791,36 @@ export function Editor({
           notes: str("notes"),
           active: str("active") === "true",
         };
+        const recharge = parseMoney(str("rechargeAmount") || "0");
+        const rechargeDay = Number(str("rechargeDay"));
+        if (!state.item && recharge > 0 && rechargeDay >= 1) {
+          const account = await api<Account>(path, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          await api("/recurrences", {
+            method: "POST",
+            body: JSON.stringify({
+              transaction: {
+                description: "Recarga " + str("name"),
+                amount: recharge,
+                date: nextMonthDay(rechargeDay),
+                type: "RECEITA",
+                paymentMethod: "TRANSFERENCIA",
+                status: "PENDENTE",
+                owner: str("owner"),
+                accountId: account.id,
+              },
+              frequency: "MENSAL",
+              interval: 1,
+              nextDate: nextMonthDay(rechargeDay),
+            }),
+          });
+          await refresh();
+          toast.success("Cartão salvo com a recarga mensal agendada.");
+          close();
+          return;
+        }
       } else if (state.kind === "card") {
         path = "/cards";
         payload = {
