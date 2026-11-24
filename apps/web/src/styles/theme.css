@@ -1445,17 +1445,98 @@ progress::-webkit-progress-value {
   }
 }
 
-/* Contas agrupadas: contas bancárias e cartões de benefício. */
-.accounts-group + .accounts-group {
-  margin-top: 28px;
+/* Cartões: escolha do tipo e cartões de benefício. */
+.card-kinds {
+  display: grid;
+  gap: 8px;
 }
-.accounts-group-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+.card-kind {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
   gap: 12px;
-  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.card-kind > svg:first-child {
+  width: 40px;
+  height: 40px;
+  padding: 9px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.card-kind small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+}
+.card-kind:hover,
+.card-kind:focus-visible {
+  border-color: var(--brand);
+}
+.cards-section-title {
+  margin: 28px 0 12px;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--muted, inherit);
+  color: var(--muted);
+}
+.page-heading + .cards-section-title {
+  margin-top: 4px;
+}
+.benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.benefit-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.benefit-card:hover {
+  border-color: var(--brand);
+}
+.benefit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.benefit-chip .bank-logo {
+  width: 26px;
+  height: 26px;
+  font-size: 0.7rem;
+}
+.benefit-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.benefit-name small,
+.benefit-balance small,
+.benefit-recharge {
+  display: block;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.benefit-balance {
+  font-size: 1.5rem;
+  font-weight: 700;
 }
