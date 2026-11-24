@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { Plus, ChevronRight, LockKeyhole } from "lucide-react";
+import {
+  Plus,
+  ChevronRight,
+  LockKeyhole,
+  CreditCard as CreditCardIcon,
+  Utensils,
+  ShoppingCart,
+  Bus,
+  Fuel,
+  Layers,
+} from "lucide-react";
+import { Dialog } from "@/components/ui/dialog";
 import type {
   Overview,
   Account,
@@ -16,7 +27,7 @@ import {
 import { CreditCardVisual } from "@/components/CreditCardVisual";
 import { OpeningBalancesDialog } from "@/components/OpeningBalances";
 import { Link } from "react-router-dom";
-import { dateLabel, monthLabel } from "@/lib/utils";
+import { dateLabel, monthLabel, money } from "@/lib/utils";
 import { isBenefitAccount } from "../../../../packages/shared/src/validation";
 export function AccountsPage({
   data,
@@ -26,12 +37,9 @@ export function AccountsPage({
   onEdit: (a?: Account) => void;
 }) {
   const [archived, setArchived] = useState(false);
-  const accounts = data.accounts.filter((a) => archived || a.active);
-  const benefits = accounts.filter((a) => isBenefitAccount(a.type));
-  const groups: [string, Account[]][] = [
-    ["Contas", accounts.filter((a) => !isBenefitAccount(a.type))],
-    ["Cartões de benefício", benefits],
-  ];
+  const accounts = data.accounts.filter(
+    (a) => (archived || a.active) && !isBenefitAccount(a.type),
+  );
   return (
     <>
       <div className="page-heading">
@@ -46,8 +54,12 @@ export function AccountsPage({
       </div>
       <div className="section-note">
         <span>
-          {accounts.length} contas · Saldo total{" "}
-          <CurrencyValue value={data.analytics.accountTotal} />
+          {accounts.length} contas · Saldo{" "}
+          <CurrencyValue
+            value={accounts
+              .filter((a) => a.active)
+              .reduce((t, a) => t + a.balance, 0)}
+          />
         </span>
         <label>
           <input
@@ -58,74 +70,144 @@ export function AccountsPage({
           Mostrar arquivadas
         </label>
       </div>
-      {groups.map(
-        ([title, list]) =>
-          list.length > 0 && (
-            <section className="accounts-group" key={title}>
-              {benefits.length > 0 && (
-                <h2 className="accounts-group-title">
-                  {title}
-                  <CurrencyValue
-                    value={list
-                      .filter((a) => a.active)
-                      .reduce((t, a) => t + a.balance, 0)}
-                  />
-                </h2>
-              )}
-              <div className="accounts-grid">
-                {list.map((a) => (
-                  <button
-                    className={
-                      "account-card panel " + (!a.active ? "archived" : "")
-                    }
-                    key={a.id}
-                    onClick={() => onEdit(a)}
-                  >
-                    <BankLogo bank={a.bankId} />
-                    <span>
-                      <h2>{data.banks.find((b) => b.id === a.bankId)?.name}</h2>
-                      <small>
-                        {a.owner} · {a.name}
-                      </small>
-                      {isBenefitAccount(a.type) && <small>{a.type}</small>}
-                      {!a.active && <small>Arquivada</small>}
-                    </span>
-                    <CurrencyValue value={a.balance} />
-                    <ChevronRight size={18} />
-                  </button>
-                ))}
-              </div>
-            </section>
-          ),
-      )}
+      <div className="accounts-grid">
+        {accounts.map((a) => (
+          <button
+            className={"account-card panel " + (!a.active ? "archived" : "")}
+            key={a.id}
+            onClick={() => onEdit(a)}
+          >
+            <BankLogo bank={a.bankId} />
+            <span>
+              <h2>{data.banks.find((b) => b.id === a.bankId)?.name}</h2>
+              <small>
+                {a.owner} · {a.name}
+              </small>
+              {!a.active && <small>Arquivada</small>}
+            </span>
+            <CurrencyValue value={a.balance} />
+            <ChevronRight size={18} />
+          </button>
+        ))}
+      </div>
       {!accounts.length && (
         <EmptyState text="Cadastre uma conta para começar." />
       )}
     </>
   );
 }
+const cardKinds = [
+  ["CREDITO", CreditCardIcon, "Crédito", "Limite, fatura e parcelas"],
+  ["Vale-refeição", Utensils, "Refeição", "Restaurantes e lanches"],
+  ["Vale-alimentação", ShoppingCart, "Alimentação", "Mercado e padaria"],
+  ["Vale-transporte", Bus, "Transporte", "Ônibus, metrô e trem"],
+  ["Vale-combustível", Fuel, "Combustível", "Abastecimento do carro"],
+  ["Multibenefício", Layers, "Multibenefício", "Flash, Caju, Swile e afins"],
+] as const;
+
 export function CardsPage({
   data,
   onEdit,
+  onBenefit,
   refresh,
 }: {
   data: Overview;
   onEdit: (c?: CreditCard) => void;
+  onBenefit: (a?: Account, type?: string) => void;
   refresh: () => Promise<void>;
 }) {
   const [openingCard, setOpeningCard] = useState<CreditCard | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const benefits = data.accounts.filter(
+    (a) => a.active && isBenefitAccount(a.type),
+  );
   return (
     <>
       <div className="page-heading">
         <div>
           <h1>Cartões</h1>
-          <p>Gerencie seus cartões de crédito.</p>
+          <p>Cartões de crédito e de benefício.</p>
         </div>
-        <Button onClick={() => onEdit()}>
+        <Button onClick={() => setChoosing(true)}>
           <Plus size={17} />
           Novo cartão
         </Button>
       </div>
+      <Dialog
+        open={choosing}
+        onOpenChange={setChoosing}
+        title="Novo cartão"
+        description="Qual tipo de cartão você quer cadastrar?"
+      >
+        <div className="card-kinds">
+          {cardKinds.map(([id, Icon, label, hint]) => (
+            <button
+              key={id}
+              type="button"
+              className="card-kind"
+              onClick={() => {
+                setChoosing(false);
+                if (id === "CREDITO") onEdit();
+                else onBenefit(undefined, id);
+              }}
+            >
+              <Icon size={22} />
+              <span>
+                {label}
+                <small>{hint}</small>
+              </span>
+              <ChevronRight size={18} />
+            </button>
+          ))}
+        </div>
+      </Dialog>
+      {benefits.length > 0 && (
+        <>
+          <h2 className="cards-section-title">Cartões de benefício</h2>
+          <div className="benefit-grid">
+            {benefits.map((a) => {
+              const recharge = data.recurrences.find(
+                (r) => r.active && r.template.accountId === a.id,
+              );
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="benefit-card panel"
+                  onClick={() => onBenefit(a)}
+                >
+                  <span
+                    className="benefit-chip"
+                    style={{ background: a.color }}
+                  >
+                    <BankLogo bank={a.bankId} />
+                    {a.type}
+                  </span>
+                  <span className="benefit-name">
+                    {a.name}
+                    <small>
+                      {a.owner} ·{" "}
+                      {data.banks.find((b) => b.id === a.bankId)?.name}
+                    </small>
+                  </span>
+                  <span className="benefit-balance">
+                    <small>Saldo disponível</small>
+                    <CurrencyValue value={a.balance} />
+                  </span>
+                  <small className="benefit-recharge">
+                    {recharge
+                      ? `Recarga de ${money(recharge.amount)} todo dia ${Number(recharge.nextDate.slice(8, 10))}`
+                      : "Sem recarga programada"}
+                  </small>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+      {benefits.length > 0 && data.cards.length > 0 && (
+        <h2 className="cards-section-title">Cartões de crédito</h2>
+      )}
       <div className="credit-cards-grid">
         {data.cards.map((c) => (
           <section className="panel" key={c.id}>
@@ -181,8 +263,8 @@ export function CardsPage({
           </section>
         ))}
       </div>
-      {!data.cards.length && (
-        <EmptyState text="Adicione um cartão de crédito." />
+      {!data.cards.length && !benefits.length && (
+        <EmptyState text="Adicione um cartão de crédito ou de benefício." />
       )}
       {openingCard && (
         <OpeningBalancesDialog

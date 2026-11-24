@@ -214,6 +214,9 @@ export default function App() {
                   refresh={refresh}
                   data={data}
                   onEdit={(item) => setEditor({ kind: "card", item })}
+                  onBenefit={(item, type) =>
+                    setEditor({ kind: "benefit", item, type })
+                  }
                 />
               }
             />

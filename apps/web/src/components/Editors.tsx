@@ -16,10 +16,7 @@ import { Button } from "./ui/button";
 import { BankLogo } from "./common";
 import { api } from "@/lib/api";
 import { today, money } from "@/lib/utils";
-import {
-  benefitAccountTypes,
-  isBenefitAccount,
-} from "../../../../packages/shared/src/validation";
+import { benefitAccountTypes } from "../../../../packages/shared/src/validation";
 
 /** Próxima data (hoje ou depois) com o dia do mês informado, limitado ao fim do mês. */
 function nextMonthDay(dayOfMonth: number) {
@@ -40,6 +37,7 @@ export type EditorState =
   | { kind: "transaction"; item?: Transaction }
   | { kind: "account"; item?: Account }
   | { kind: "card"; item?: CreditCard }
+  | { kind: "benefit"; item?: Account; type?: string }
   | { kind: "category"; item?: Category }
   | { kind: "pay"; item: Invoice }
   | null;
@@ -80,6 +78,7 @@ function Input({
   full = false,
   min,
   max,
+  placeholder,
 }: {
   name: string;
   label: string;
@@ -89,6 +88,7 @@ function Input({
   full?: boolean;
   min?: number;
   max?: number;
+  placeholder?: string;
 }) {
   return (
     <Field label={label} full={full}>
@@ -100,6 +100,7 @@ function Input({
         required={required}
         min={min}
         max={max}
+        placeholder={placeholder}
       />
     </Field>
   );
@@ -135,19 +136,49 @@ function Select({
     </Field>
   );
 }
-function BankSelect({ data, value }: { data: Overview; value?: string }) {
+export const benefitIssuers = [
+  "alelo",
+  "pluxee",
+  "ticket",
+  "vr",
+  "flash",
+  "caju",
+  "swile",
+  "ifood-beneficios",
+  "ben",
+];
+function BankSelect({
+  data,
+  value,
+  label = "Banco",
+  benefit = false,
+}: {
+  data: Overview;
+  value?: string;
+  label?: string;
+  benefit?: boolean;
+}) {
   const [bank, setBank] = useState(value || "");
+  // Em cartão de benefício, as emissoras vêm antes dos bancos.
+  const banks = benefit
+    ? [
+        ...data.banks.filter((b) => benefitIssuers.includes(b.id)),
+        ...data.banks.filter((b) => !benefitIssuers.includes(b.id)),
+      ]
+    : data.banks.filter(
+        (b) => !benefitIssuers.includes(b.id) || b.id === value,
+      );
   return (
-    <Field label="Banco">
+    <Field label={label}>
       <S.Root name="bankId" value={bank} onValueChange={setBank} required>
-        <S.Trigger aria-label="Banco" className="bank-select-trigger">
+        <S.Trigger aria-label={label} className="bank-select-trigger">
           {bank ? (
             <>
               <BankLogo bank={bank} />
               <span>{data.banks.find((b) => b.id === bank)?.name}</span>
             </>
           ) : (
-            <span>Selecione o banco</span>
+            <span>Selecione</span>
           )}
           <ChevronDown size={16} />
         </S.Trigger>
@@ -158,7 +189,7 @@ function BankSelect({ data, value }: { data: Overview; value?: string }) {
             sideOffset={5}
           >
             <S.Viewport>
-              {data.banks.map((b) => (
+              {banks.map((b) => (
                 <S.Item className="bank-select-item" key={b.id} value={b.id}>
                   <BankLogo bank={b.id} />
                   <S.ItemText>{b.name}</S.ItemText>
@@ -439,60 +470,107 @@ const bankAccountTypes = [
   "Digital",
   "Investimento",
 ];
-/** Tipo da conta; em cartão de benefício novo, permite agendar a recarga mensal. */
-function AccountTypeFields({
-  value,
-  creating,
+/** Cartão de benefício: saldo pré-pago com recarga mensal, sem limite nem fatura. */
+function BenefitFields({
+  data,
+  item,
+  type,
 }: {
-  value: string;
-  creating: boolean;
+  data: Overview;
+  item?: Account;
+  type?: string;
 }) {
-  const [type, setType] = useState(value);
-  const benefit = isBenefitAccount(type);
+  const recharge = item
+    ? data.recurrences.find((r) => r.active && r.template.accountId === item.id)
+    : undefined;
   return (
     <>
-      <Field label="Tipo da conta">
-        <select
-          name="type"
-          aria-label="Tipo da conta"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          required
-        >
-          <optgroup label="Contas">
-            {bankAccountTypes.map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </optgroup>
-          <optgroup label="Cartões de benefício">
-            {benefitAccountTypes.map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </optgroup>
-        </select>
-      </Field>
-      {benefit && creating && (
+      <Select
+        name="type"
+        label="Tipo de benefício"
+        value={item?.type || type || benefitAccountTypes[0]}
+        items={benefitAccountTypes.map((id) => ({ id, name: id }))}
+      />
+      <BankSelect
+        data={data}
+        value={item?.bankId}
+        label="Emissora do cartão"
+        benefit
+      />
+      <Input
+        name="name"
+        label="Apelido do cartão"
+        value={item?.name}
+        placeholder="Ex.: VR do Fábio"
+      />
+      <Select
+        name="owner"
+        label="Titular"
+        value={item?.owner || data.user.name}
+        items={peopleOf(data)}
+      />
+      {item ? (
+        <>
+          <input
+            type="hidden"
+            name="initialBalance"
+            value={inputMoney(item.initialBalance)}
+          />
+          <input
+            type="hidden"
+            name="openingDate"
+            value={item.openingDate.slice(0, 10)}
+          />
+          <p className="muted full">
+            Saldo disponível: <strong>{money(item.balance)}</strong>.
+            {recharge
+              ? ` Recarga de ${money(recharge.amount)} todo dia ${Number(recharge.nextDate.slice(8, 10))}.`
+              : ""}{" "}
+            O saldo muda com as recargas e os gastos lançados neste cartão.
+          </p>
+        </>
+      ) : (
         <>
           <Input
+            name="initialBalance"
+            label="Saldo disponível hoje (R$)"
+            value="0,00"
+          />
+          <input type="hidden" name="openingDate" value={today()} />
+          <Input
             name="rechargeAmount"
-            label="Recarga mensal (R$)"
+            label="Valor da recarga mensal (R$)"
             required={false}
+            placeholder="Ex.: 880,00"
           />
           <Input
             name="rechargeDay"
-            label="Dia da recarga"
+            label="Dia em que cai a recarga"
             type="number"
             min={1}
             max={31}
             required={false}
+            placeholder="Ex.: 5"
           />
           <p className="muted full">
-            Com recarga e dia preenchidos, o Coflu agenda uma receita mensal
-            pendente neste cartão. Para pagar com ele, lance a despesa
-            escolhendo este cartão como conta.
+            A recarga entra todo mês como receita pendente, é só confirmar
+            quando cair. Os gastos são lançados escolhendo este cartão.
           </p>
         </>
       )}
+      <Input
+        name="color"
+        label="Cor do cartão"
+        type="color"
+        value={item?.color || "#e8572a"}
+      />
+      <Input
+        name="notes"
+        label="Observação"
+        value={item?.notes}
+        required={false}
+        full
+      />
     </>
   );
 }
@@ -505,6 +583,8 @@ function EntityFields({
 }) {
   if (state.kind === "transaction")
     return <TransactionFields data={data} item={state.item} />;
+  if (state.kind === "benefit")
+    return <BenefitFields data={data} item={state.item} type={state.type} />;
   if (state.kind === "account" || state.kind === "card") {
     const i = state.item;
     return (
@@ -519,9 +599,11 @@ function EntityFields({
         />
         {state.kind === "account" ? (
           <>
-            <AccountTypeFields
+            <Select
+              name="type"
+              label="Tipo da conta"
               value={state.item?.type || "Corrente"}
-              creating={!state.item}
+              items={bankAccountTypes.map((id) => ({ id, name: id }))}
             />
             <Input
               name="initialBalance"
@@ -703,11 +785,16 @@ export function Editor({
   const title =
     state.kind === "pay"
       ? "Pagar fatura"
-      : (state.item ? "Editar " : state.kind === "card" ? "Novo " : "Nova ") +
+      : (state.item
+          ? "Editar "
+          : state.kind === "card" || state.kind === "benefit"
+            ? "Novo "
+            : "Nova ") +
         {
           transaction: "transação",
           account: "conta",
           card: "cartão",
+          benefit: "cartão de benefício",
           category: "categoria",
         }[state.kind];
   const readOnly =
@@ -778,7 +865,7 @@ export function Editor({
           return;
         }
         path = "/transactions";
-      } else if (state.kind === "account") {
+      } else if (state.kind === "account" || state.kind === "benefit") {
         path = "/accounts";
         payload = {
           name: str("name"),
@@ -789,7 +876,10 @@ export function Editor({
           openingDate: str("openingDate"),
           color: str("color"),
           notes: str("notes"),
-          active: str("active") === "true",
+          active:
+            state.kind === "benefit"
+              ? (state.item?.active ?? true)
+              : str("active") === "true",
         };
         const recharge = parseMoney(str("rechargeAmount") || "0");
         const rechargeDay = Number(str("rechargeDay"));
@@ -877,6 +967,7 @@ export function Editor({
           {
             transaction: "transactions",
             account: "accounts",
+            benefit: "accounts",
             card: "cards",
             category: "categories",
             pay: "invoices",
@@ -956,7 +1047,9 @@ export function Editor({
           ) && (
             <ConfirmAction
               title={
-                state.kind === "account" || state.kind === "card"
+                state.kind === "account" ||
+                state.kind === "card" ||
+                state.kind === "benefit"
                   ? "Arquivar registro?"
                   : "Cancelar registro?"
               }
@@ -964,7 +1057,9 @@ export function Editor({
               action={() => remove()}
             >
               <Button variant="ghost" className="delete-action">
-                {state.kind === "account" || state.kind === "card"
+                {state.kind === "account" ||
+                state.kind === "card" ||
+                state.kind === "benefit"
                   ? "Arquivar"
                   : state.kind === "category"
                     ? "Excluir"
