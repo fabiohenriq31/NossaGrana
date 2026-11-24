@@ -66,6 +66,16 @@ export const transactionInput = z
       issue("Informe a categoria da subcategoria.");
   });
 export type TransactionInput = z.infer<typeof transactionInput>;
+/** Cartões de benefício: saldo pré-pago recarregado pela empresa. */
+export const benefitAccountTypes = [
+  "Vale-refeição",
+  "Vale-alimentação",
+  "Vale-transporte",
+  "Vale-combustível",
+  "Multibenefício",
+] as const;
+export const isBenefitAccount = (type: string) =>
+  (benefitAccountTypes as readonly string[]).includes(type);
 export const accountInput = z
   .object({
     bankId: z.string().min(1),
@@ -78,6 +88,7 @@ export const accountInput = z
       "Dinheiro",
       "Digital",
       "Investimento",
+      ...benefitAccountTypes,
     ]),
     initialBalance: z.number().int().min(-1000000000).max(1000000000),
     openingDate: day,

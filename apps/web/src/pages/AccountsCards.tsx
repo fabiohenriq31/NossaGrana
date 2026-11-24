@@ -17,6 +17,7 @@ import { CreditCardVisual } from "@/components/CreditCardVisual";
 import { OpeningBalancesDialog } from "@/components/OpeningBalances";
 import { Link } from "react-router-dom";
 import { dateLabel, monthLabel } from "@/lib/utils";
+import { isBenefitAccount } from "../../../../packages/shared/src/validation";
 export function AccountsPage({
   data,
   onEdit,
@@ -26,6 +27,11 @@ export function AccountsPage({
 }) {
   const [archived, setArchived] = useState(false);
   const accounts = data.accounts.filter((a) => archived || a.active);
+  const benefits = accounts.filter((a) => isBenefitAccount(a.type));
+  const groups: [string, Account[]][] = [
+    ["Contas", accounts.filter((a) => !isBenefitAccount(a.type))],
+    ["Cartões de benefício", benefits],
+  ];
   return (
     <>
       <div className="page-heading">
@@ -52,26 +58,46 @@ export function AccountsPage({
           Mostrar arquivadas
         </label>
       </div>
-      <div className="accounts-grid">
-        {accounts.map((a) => (
-          <button
-            className={"account-card panel " + (!a.active ? "archived" : "")}
-            key={a.id}
-            onClick={() => onEdit(a)}
-          >
-            <BankLogo bank={a.bankId} />
-            <span>
-              <h2>{data.banks.find((b) => b.id === a.bankId)?.name}</h2>
-              <small>
-                {a.owner} · {a.name}
-              </small>
-              {!a.active && <small>Arquivada</small>}
-            </span>
-            <CurrencyValue value={a.balance} />
-            <ChevronRight size={18} />
-          </button>
-        ))}
-      </div>
+      {groups.map(
+        ([title, list]) =>
+          list.length > 0 && (
+            <section className="accounts-group" key={title}>
+              {benefits.length > 0 && (
+                <h2 className="accounts-group-title">
+                  {title}
+                  <CurrencyValue
+                    value={list
+                      .filter((a) => a.active)
+                      .reduce((t, a) => t + a.balance, 0)}
+                  />
+                </h2>
+              )}
+              <div className="accounts-grid">
+                {list.map((a) => (
+                  <button
+                    className={
+                      "account-card panel " + (!a.active ? "archived" : "")
+                    }
+                    key={a.id}
+                    onClick={() => onEdit(a)}
+                  >
+                    <BankLogo bank={a.bankId} />
+                    <span>
+                      <h2>{data.banks.find((b) => b.id === a.bankId)?.name}</h2>
+                      <small>
+                        {a.owner} · {a.name}
+                      </small>
+                      {isBenefitAccount(a.type) && <small>{a.type}</small>}
+                      {!a.active && <small>Arquivada</small>}
+                    </span>
+                    <CurrencyValue value={a.balance} />
+                    <ChevronRight size={18} />
+                  </button>
+                ))}
+              </div>
+            </section>
+          ),
+      )}
       {!accounts.length && (
         <EmptyState text="Cadastre uma conta para começar." />
       )}

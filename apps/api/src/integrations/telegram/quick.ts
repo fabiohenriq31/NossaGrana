@@ -6,6 +6,7 @@ import { confirmSuggestion, householdChoices } from "./suggestions";
 import { identity } from "./identity";
 import type { Extraction } from "./analyzer";
 import type { Keyboard } from "./providers";
+import { isBenefitAccount } from "../../../../../packages/shared/src/validation";
 
 /**
  * Lançamento rápido: quando a mensagem ou o comprovante já trazem tudo o que é necessário,
@@ -46,7 +47,10 @@ export function defaultPayment(
     method === "DINHEIRO"
       ? choices.accounts.filter((a) => walletTypes.includes(a.type))
       : choices.accounts.filter(
-          (a) => !walletTypes.includes(a.type) && a.type !== "Investimento",
+          (a) =>
+            !walletTypes.includes(a.type) &&
+            a.type !== "Investimento" &&
+            !isBenefitAccount(a.type),
         );
   const account = single(pool);
   return account
