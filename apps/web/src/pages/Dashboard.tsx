@@ -283,9 +283,7 @@ export function Dashboard({
             {card ? (
               <CreditCardVisual
                 card={card}
-                invoice={data.invoices.find(
-                  (i) => i.cardId === card.id && i.competence === month,
-                )}
+                invoices={data.invoices}
               />
             ) : (
               <EmptyState

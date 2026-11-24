@@ -80,12 +80,10 @@ export function AccountsPage({
 }
 export function CardsPage({
   data,
-  month,
   onEdit,
   refresh,
 }: {
   data: Overview;
-  month: string;
   onEdit: (c?: CreditCard) => void;
   refresh: () => Promise<void>;
 }) {
@@ -112,12 +110,7 @@ export function CardsPage({
                 <ChevronRight size={14} />
               </Button>
             </div>
-            <CreditCardVisual
-              card={c}
-              invoice={data.invoices.find(
-                (i) => i.cardId === c.id && i.competence === month,
-              )}
-            />
+            <CreditCardVisual card={c} invoices={data.invoices} />
             <div className="card-owner">
               {c.owner} · {c.brand}
               <span>{c.active ? "Ativo" : "Arquivado"}</span>
