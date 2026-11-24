@@ -213,7 +213,6 @@ export default function App() {
                 <CardsPage
                   refresh={refresh}
                   data={data}
-                  month={month}
                   onEdit={(item) => setEditor({ kind: "card", item })}
                 />
               }

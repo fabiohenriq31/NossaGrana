@@ -3,16 +3,35 @@ import type {
   Invoice,
 } from "../../../../packages/shared/src/types";
 import { BankLogo, CurrencyValue } from "./common";
-import { dateLabel } from "@/lib/utils";
+import { dateLabel, today } from "@/lib/utils";
+
+/**
+ * Fatura atual = a primeira que ainda não fechou (o dia do fechamento ainda
+ * entra nela). Também devolve a fatura já fechada que ainda tem saldo a pagar.
+ */
+export function cardInvoices(cardId: string, invoices: Invoice[]) {
+  const day = today();
+  const mine = invoices
+    .filter((i) => i.cardId === cardId)
+    .sort((a, b) => a.closingDate.localeCompare(b.closingDate));
+  return {
+    open: mine.find((i) => i.closingDate.slice(0, 10) >= day),
+    toPay: mine.find(
+      (i) => i.closingDate.slice(0, 10) < day && i.remaining > 0,
+    ),
+  };
+}
+
 export function CreditCardVisual({
   card,
-  invoice,
+  invoices,
   details = true,
 }: {
   card: CreditCard;
-  invoice?: Invoice;
+  invoices: Invoice[];
   details?: boolean;
 }) {
+  const { open: invoice, toPay } = cardInvoices(card.id, invoices);
   return (
     <div className="card-visual-wrap">
       <div className="credit-card" style={{ background: card.color }}>
@@ -57,6 +76,22 @@ export function CreditCardVisual({
               </b>
             </span>
           </div>
+          {toPay && (
+            <p
+              className={
+                "card-to-pay" + (toPay.status === "Atrasada" ? " late" : "")
+              }
+            >
+              <span>
+                Fatura fechada{" "}
+                {toPay.status === "Atrasada" ? "· atrasada" : "a pagar"}
+              </span>
+              <span>
+                <CurrencyValue value={toPay.remaining} /> · vence{" "}
+                {dateLabel(toPay.dueDate)}
+              </span>
+            </p>
+          )}
           <progress
             max={card.limit || 1}
             value={card.used}
